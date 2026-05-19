@@ -1,20 +1,12 @@
-from langchain_openai import ChatOpenAI
-from langchain_groq import ChatGroq
+from langchain_community.chat_models import ChatLiteLLM
 from langgraph.prebuilt import create_react_agent
 
-from app.config import settings
+import app.config  # noqa: F401 — ensures OLLAMA_API_BASE is set
 
 
 def get_llm(model: str):
-    if model.startswith("groq/"):
-        return ChatGroq(model=model[5:], api_key=settings.groq_api_key)
-    return ChatOpenAI(
-        model=model,
-        base_url=f"{settings.ollama_base_url}/v1",
-        api_key="ollama",
-    )
+    return ChatLiteLLM(model=model)
 
 
 def build_agent(tools: list, system_prompt: str, model: str):
-    llm = get_llm(model)
-    return create_react_agent(llm, tools, state_modifier=system_prompt)
+    return create_react_agent(get_llm(model), tools, state_modifier=system_prompt)

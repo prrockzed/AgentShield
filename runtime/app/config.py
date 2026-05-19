@@ -4,9 +4,11 @@ from dataclasses import dataclass
 
 @dataclass
 class Settings:
-    ollama_base_url: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-    default_model: str = os.getenv("DEFAULT_MODEL", "llama3")
-    groq_api_key: str = os.getenv("GROQ_API_KEY", "")
+    ollama_base_url: str = os.getenv("OLLAMA_BASE_URL", "http://host.docker.internal:11434")
+    default_model: str = os.getenv("DEFAULT_MODEL", "ollama_chat/qwen3:4b")
 
 
 settings = Settings()
+
+# LiteLLM reads OLLAMA_API_BASE, not OLLAMA_BASE_URL
+os.environ.setdefault("OLLAMA_API_BASE", settings.ollama_base_url)
