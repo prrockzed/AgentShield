@@ -1,2 +1,35 @@
 docs/
 .env
+
+# ── Node.js / Next.js (frontend) ─────────────────────────────────────────────
+node_modules/
+.next/
+out/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ── Python (runtime, security-engine) ────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+*.egg-info/
+dist/
+.pytest_cache/
+
+# ── Go (gateway, sandbox-manager) ────────────────────────────────────────────
+# compiled binaries produced by `go build` locally
+gateway/gateway
+sandbox-manager/sandbox-manager
+
+# ── IDEs & editors ────────────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
