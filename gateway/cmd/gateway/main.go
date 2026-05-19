@@ -14,6 +14,7 @@ import (
 	_ "github.com/lib/pq"
 
 	"github.com/prrockzed/agentshield/gateway/db"
+	"github.com/prrockzed/agentshield/gateway/internal/handlers"
 )
 
 func main() {
@@ -66,6 +67,13 @@ func main() {
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok", "service": "gateway"})
 	})
+
+	eventsHandler := handlers.NewEventsHandler(sqlDB)
+	api := r.Group("/api")
+	{
+		api.POST("/events", eventsHandler.CreateEvent)
+		api.GET("/events", eventsHandler.ListEvents)
+	}
 
 	log.Printf("gateway listening on :%s", port)
 	if err := r.Run(":" + port); err != nil {
