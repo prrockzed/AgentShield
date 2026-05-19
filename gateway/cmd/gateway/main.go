@@ -20,7 +20,7 @@ func main() {
 	// --- Database ---
 	dsn := fmt.Sprintf(
 		"host=%s port=%s dbname=%s user=%s password=%s sslmode=disable",
-		getEnv("POSTGRES_HOST", "postgres"),
+		getEnv("POSTGRES_HOST", "localhost"),
 		getEnv("POSTGRES_PORT", "5432"),
 		getEnv("POSTGRES_DB", "agentshield"),
 		getEnv("POSTGRES_USER", "agentshield"),

@@ -40,10 +40,23 @@ Every action an agent attempts — shell command, file read, HTTP fetch, output 
 git clone https://github.com/prrockzed/AgentShield.git
 cd AgentShield
 
-# 2. Configure (minimum: set JWT_SECRET and ADMIN_PASSWORD)
+# 2. Configure — create .env from the template
 cp .env.example .env
-# edit .env — set JWT_SECRET, ADMIN_EMAIL, ADMIN_PASSWORD, and your LLM provider
+```
 
+Now open `.env` in any editor and fill in the three required values:
+
+```bash
+# Generate a secure JWT secret (copy the output into .env)
+openssl rand -hex 32
+
+# Set these three in .env:
+JWT_SECRET=<paste the openssl output here>
+ADMIN_EMAIL=you@example.com
+ADMIN_PASSWORD=choose-a-strong-password
+```
+
+```bash
 # 3. Start everything with one command
 docker compose up --build
 
@@ -159,4 +172,87 @@ docker compose down
 
 # Remove containers + wipe all data
 docker compose down -v
+```
+
+---
+
+## Running Locally (without Docker for app services)
+
+You can run any app service directly on your machine while Docker handles infrastructure
+(PostgreSQL, Redis, NATS). This removes the image-rebuild cycle and is the fastest inner
+loop when actively working on a specific service.
+
+**Prerequisites**
+
+| Service | What you need |
+|---------|--------------|
+| gateway, sandbox-manager | Go 1.22+ |
+| runtime, security-engine | Python 3.12+, pip |
+| frontend | Node.js 20+, npm |
+
+**Step 1 — Start only infrastructure**
+
+```bash
+make infra
+# equivalent: docker compose up -d postgres redis nats
+```
+
+PostgreSQL is exposed on `localhost:5432`. App services default to `localhost` when
+`POSTGRES_HOST` is not set, so no extra env config is needed.
+
+**Step 2 — Install local dependencies**
+
+```bash
+make install-gateway           # go mod download
+make install-sandbox-manager   # go mod download
+make install-frontend          # npm install
+
+# For Python services, use a virtual environment to keep deps isolated:
+python3 -m venv .venv
+source .venv/bin/activate      # Windows: .venv\Scripts\activate
+make install-runtime           # pip install -r requirements.txt
+make install-security-engine   # pip install -r requirements.txt
+```
+
+Activate the venv in every terminal where you run a Python service.
+
+**Step 3 — Source `.env` into your shell**
+
+```bash
+set -a && source .env && set +a
+```
+
+**Step 4 — Run services, each in its own terminal**
+
+```bash
+make run-gateway           # Go     → http://localhost:8080
+make run-runtime           # Python → http://localhost:8000  (auto-reloads on save)
+make run-security-engine   # Python → http://localhost:8001  (auto-reloads on save)
+make run-sandbox-manager   # Go     → http://localhost:8002
+make run-frontend          # Next.js → http://localhost:3000 (auto-reloads on save)
+```
+
+Python and Next.js watch the filesystem and reload automatically. Go services do not —
+re-run the `make run-*` command after editing Go source.
+
+---
+
+## Updating a Single Service (Docker workflow)
+
+When the full stack is running via `docker compose up --build`, you never need to stop
+everything to update one service. Open a **second terminal** and run:
+
+```bash
+# Rebuild the image and restart just that service
+docker compose up --build -d gateway
+
+# Restart without rebuilding (e.g. only an env var changed, no code change)
+docker compose restart runtime
+
+# Makefile shorthands for the same operations
+make rebuild svc=gateway
+make restart svc=runtime
+
+# Follow logs of a specific service
+docker compose logs -f gateway
 ```
