@@ -87,7 +87,9 @@ async def execute(request: ExecuteRequest):
     output = messages[-1].content if messages else ""
 
     output_result = intercept_output(run_id, output)
-    if output_result.decision != "ALLOWED":
+    if output_result.decision == "REDACTED":
+        output = output_result.redacted_content
+    elif output_result.decision == "BLOCKED":
         output = f"[Blocked] {output_result.reason}"
 
     return ExecuteResponse(

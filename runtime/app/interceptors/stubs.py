@@ -15,6 +15,7 @@ _SE_URL = os.getenv("SECURITY_ENGINE_URL", "http://security-engine:8001")
 class InterceptResult:
     decision: str  # "ALLOWED" | "BLOCKED" | "FLAGGED" | "REDACTED"
     reason: str = ""
+    redacted_content: str = ""
 
 
 def intercept_prompt(run_id: str, content: str, source: str) -> InterceptResult:
@@ -74,14 +75,31 @@ def intercept_tool_call(run_id: str, tool_name: str, tool_input: str) -> Interce
 
 
 def intercept_output(run_id: str, output: str) -> InterceptResult:
-    result = InterceptResult(decision="ALLOWED")
+    try:
+        with httpx.Client(timeout=5.0) as client:
+            resp = client.post(
+                f"{_SE_URL}/intercept/output",
+                json={"run_id": run_id, "content": output},
+            )
+            data = resp.json()
+            result = InterceptResult(
+                decision=data["decision"],
+                redacted_content=data.get("redacted_content", output),
+            )
+            detections = data.get("detections", [])
+    except Exception as exc:
+        logger.warning("intercept_output: security-engine unreachable: %s", exc)
+        result = InterceptResult(decision="ALLOWED", redacted_content=output)
+        detections = []
+
+    severity = "HIGH" if result.decision == "REDACTED" else "INFO"
     publish_event({
         "run_id":     run_id,
         "event_type": "OUTPUT_SCAN",
-        "source":     "output_interceptor_stub",
-        "payload":    {"output_length": len(output)},
+        "source":     "output_interceptor",
+        "payload":    {"output_length": len(output), "detections": detections},
         "decision":   result.decision,
-        "reason":     result.reason or None,
-        "severity":   "INFO",
+        "reason":     f"{len(detections)} detection(s)" if detections else None,
+        "severity":   severity,
     })
     return result

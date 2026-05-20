@@ -3,6 +3,7 @@ from pydantic import BaseModel
 
 from app.interceptors.tool_interceptor import evaluate_shell_command
 from app.interceptors.prompt_interceptor import evaluate_prompt
+from app.interceptors.output_interceptor import evaluate_output
 
 app = FastAPI(title="AgentShield Security Engine")
 
@@ -48,3 +49,20 @@ class InterceptPromptResponse(BaseModel):
 async def intercept_prompt_endpoint(request: InterceptPromptRequest):
     result = evaluate_prompt(request.content, request.source)
     return InterceptPromptResponse(**result)
+
+
+class InterceptOutputRequest(BaseModel):
+    run_id: str
+    content: str
+
+
+class InterceptOutputResponse(BaseModel):
+    decision: str
+    redacted_content: str
+    detections: list[dict]
+
+
+@app.post("/intercept/output", response_model=InterceptOutputResponse)
+async def intercept_output_endpoint(request: InterceptOutputRequest):
+    result = evaluate_output(request.content)
+    return InterceptOutputResponse(**result)
