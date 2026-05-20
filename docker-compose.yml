@@ -101,8 +101,11 @@ services:
     environment:
       GATEWAY_URL: "http://gateway:8080"
       SECURITY_ENGINE_URL: "http://security-engine:8001"
+      SANDBOX_MANAGER_URL: "http://sandbox-manager:8002"
     depends_on:
       security-engine:
+        condition: service_healthy
+      sandbox-manager:
         condition: service_healthy
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -150,6 +153,8 @@ services:
     depends_on:
       nats:
         condition: service_healthy
+    ports:
+      - "8002:8002"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8002/health > /dev/null"]
       interval: 60s

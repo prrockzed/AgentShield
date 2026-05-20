@@ -1,15 +1,22 @@
+import logging
+import os
 import uuid
 
+import httpx
 from fastapi import FastAPI, HTTPException
 
 from app.agents import AGENT_REGISTRY
 from app.agents.base import build_agent
 from app.interceptors import intercept_input, intercept_output
 from app.schemas import AgentInfo, ExecuteRequest, ExecuteResponse, ModelInfo
-from app.tools import _run_id_ctx
+from app.tools import _run_id_ctx, _sandbox_id_ctx
 import app.trace as trace
 
+logger = logging.getLogger(__name__)
+
 app = FastAPI(title="AgentShield Runtime")
+
+_SM_URL = os.getenv("SANDBOX_MANAGER_URL", "http://sandbox-manager:8002")
 
 _MODELS = [
     # ollama (local) — pull model first: ollama pull <name>
@@ -34,6 +41,24 @@ _MODELS = [
     ModelInfo(name="anthropic/claude-3-5-haiku-20241022", provider="anthropic"),
     ModelInfo(name="anthropic/claude-3-5-sonnet-20241022", provider="anthropic"),
 ]
+
+
+def _create_sandbox() -> str:
+    try:
+        with httpx.Client(timeout=30.0) as c:
+            resp = c.post(f"{_SM_URL}/sandbox/create")
+            return resp.json().get("sandbox_id", "")
+    except Exception as exc:
+        logger.warning("sandbox create failed (fail-open): %s", exc)
+        return ""
+
+
+def _destroy_sandbox(sandbox_id: str) -> None:
+    try:
+        with httpx.Client(timeout=10.0) as c:
+            c.delete(f"{_SM_URL}/sandbox/{sandbox_id}")
+    except Exception as exc:
+        logger.warning("sandbox destroy failed: %s", exc)
 
 
 @app.get("/health")
@@ -77,11 +102,17 @@ async def execute(request: ExecuteRequest):
 
     agent = build_agent(module.TOOLS, module.SYSTEM_PROMPT, request.model)
 
-    token = _run_id_ctx.set(run_id)
+    sandbox_id = _create_sandbox()
+
+    run_token = _run_id_ctx.set(run_id)
+    sbx_token = _sandbox_id_ctx.set(sandbox_id)
     try:
         result = agent.invoke({"messages": [{"role": "user", "content": request.task}]})
     finally:
-        _run_id_ctx.reset(token)
+        _run_id_ctx.reset(run_token)
+        _sandbox_id_ctx.reset(sbx_token)
+        if sandbox_id:
+            _destroy_sandbox(sandbox_id)
 
     messages = result.get("messages", [])
     output = messages[-1].content if messages else ""

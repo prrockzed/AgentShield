@@ -149,12 +149,12 @@ Agent → ToolInterceptor → Security Engine → ALLOW/BLOCK
 
 ## Project Status
 
-**Current milestone:** M1 — Core Security Foundation (Phases 0–5) — **Complete**
+**Current milestone:** M2 — Sandbox & Real-Time Platform (Phases 6–9) — **In progress (1/4)**
 
 | Milestone | Phases | Status |
 |-----------|--------|--------|
 | M1 — Core Security Foundation | 0–5 | **Complete** |
-| M2 — Sandbox & Real-Time Platform | 6–9 | Not started |
+| M2 — Sandbox & Real-Time Platform | 6–9 | **In progress — Phase 6 done** |
 | M3 — Advanced Threat Detection | 10–13 | Not started |
 | M4 — Full Security Coverage | 14–17 | Not started |
 | M5 — Self-Testing & Production | 18–20 | Not started |
@@ -186,7 +186,8 @@ loop when actively working on a specific service.
 
 | Service | What you need |
 |---------|--------------|
-| gateway, sandbox-manager | Go 1.22+ |
+| gateway | Go 1.22+ |
+| sandbox-manager | Go 1.25+ |
 | runtime, security-engine | Python 3.12+, pip |
 | frontend | Node.js 20+, npm |
 
