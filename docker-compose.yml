@@ -74,6 +74,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-agentshield}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-agentshield}
       GATEWAY_PORT: "8080"
+      NATS_URL: "nats://nats:4222"
     ports:
       - "8080:8080"
     depends_on:
@@ -102,10 +103,13 @@ services:
       GATEWAY_URL: "http://gateway:8080"
       SECURITY_ENGINE_URL: "http://security-engine:8001"
       SANDBOX_MANAGER_URL: "http://sandbox-manager:8002"
+      NATS_URL: "nats://nats:4222"
     depends_on:
       security-engine:
         condition: service_healthy
       sandbox-manager:
+        condition: service_healthy
+      nats:
         condition: service_healthy
     extra_hosts:
       - "host.docker.internal:host-gateway"

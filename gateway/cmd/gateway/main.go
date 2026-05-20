@@ -15,6 +15,8 @@ import (
 
 	"github.com/prrockzed/agentshield/gateway/db"
 	"github.com/prrockzed/agentshield/gateway/internal/handlers"
+	natscons "github.com/prrockzed/agentshield/gateway/internal/nats"
+	"github.com/prrockzed/agentshield/gateway/internal/ws"
 )
 
 func main() {
@@ -60,6 +62,16 @@ func main() {
 	}
 	log.Println("migrations applied")
 
+	// --- WebSocket Hub ---
+	hub := ws.NewHub()
+
+	// --- NATS Consumer ---
+	consumer, err := natscons.New(getEnv("NATS_URL", "nats://nats:4222"), sqlDB, hub)
+	if err != nil {
+		log.Fatalf("nats: %v", err)
+	}
+	consumer.Start()
+
 	// --- HTTP ---
 	port := getEnv("GATEWAY_PORT", "8080")
 	r := gin.Default()
@@ -68,12 +80,14 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{"status": "ok", "service": "gateway"})
 	})
 
-	eventsHandler := handlers.NewEventsHandler(sqlDB)
+	h := handlers.NewHandler(sqlDB, hub)
 	api := r.Group("/api")
 	{
-		api.POST("/events", eventsHandler.CreateEvent)
-		api.GET("/events", eventsHandler.ListEvents)
+		api.POST("/events", h.CreateEvent)
+		api.GET("/events", h.ListEvents)
 	}
+
+	r.GET("/ws/events", h.WebSocketEvents)
 
 	log.Printf("gateway listening on :%s", port)
 	if err := r.Run(":" + port); err != nil {

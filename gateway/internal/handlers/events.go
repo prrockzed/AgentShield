@@ -8,17 +8,47 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/prrockzed/agentshield/gateway/internal/models"
+	"github.com/prrockzed/agentshield/gateway/internal/ws"
 )
 
-type EventsHandler struct {
-	DB *sql.DB
+// Handler holds shared dependencies for all HTTP and WebSocket handlers.
+type Handler struct {
+	db  *sql.DB
+	hub *ws.Hub
 }
 
-func NewEventsHandler(db *sql.DB) *EventsHandler {
-	return &EventsHandler{DB: db}
+// NewHandler creates a Handler wired to the given DB and WebSocket hub.
+func NewHandler(db *sql.DB, hub *ws.Hub) *Handler {
+	return &Handler{db: db, hub: hub}
 }
 
-func (h *EventsHandler) CreateEvent(c *gin.Context) {
+// InsertEvent persists a security event to PostgreSQL and returns the created record.
+func InsertEvent(db *sql.DB, req models.CreateEventRequest) (models.SecurityEvent, error) {
+	var payloadJSON *string
+	if req.Payload != nil {
+		b, err := json.Marshal(req.Payload)
+		if err != nil {
+			return models.SecurityEvent{}, err
+		}
+		s := string(b)
+		payloadJSON = &s
+	}
+
+	const q = `
+		INSERT INTO security_events
+			(run_id, event_type, source, payload, decision, reason, severity, matched_signature_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		RETURNING id, run_id, event_type, source, payload, decision, reason, severity, matched_signature_id, timestamp`
+
+	row := db.QueryRow(q,
+		req.RunID, string(req.EventType), req.Source, payloadJSON,
+		string(req.Decision), req.Reason, string(req.Severity), req.MatchedSignatureID,
+	)
+
+	return scanEvent(row.Scan)
+}
+
+func (h *Handler) CreateEvent(c *gin.Context) {
 	var req models.CreateEventRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -38,29 +68,7 @@ func (h *EventsHandler) CreateEvent(c *gin.Context) {
 		return
 	}
 
-	var payloadJSON *string
-	if req.Payload != nil {
-		b, err := json.Marshal(req.Payload)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid payload"})
-			return
-		}
-		s := string(b)
-		payloadJSON = &s
-	}
-
-	const q = `
-		INSERT INTO security_events
-			(run_id, event_type, source, payload, decision, reason, severity, matched_signature_id)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-		RETURNING id, run_id, event_type, source, payload, decision, reason, severity, matched_signature_id, timestamp`
-
-	row := h.DB.QueryRow(q,
-		req.RunID, string(req.EventType), req.Source, payloadJSON,
-		string(req.Decision), req.Reason, string(req.Severity), req.MatchedSignatureID,
-	)
-
-	evt, err := scanEvent(row.Scan)
+	evt, err := InsertEvent(h.db, req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to persist event"})
 		return
@@ -69,7 +77,7 @@ func (h *EventsHandler) CreateEvent(c *gin.Context) {
 	c.JSON(http.StatusCreated, evt)
 }
 
-func (h *EventsHandler) ListEvents(c *gin.Context) {
+func (h *Handler) ListEvents(c *gin.Context) {
 	runID := c.Query("run_id")
 	severity := c.Query("severity")
 
@@ -92,7 +100,7 @@ func (h *EventsHandler) ListEvents(c *gin.Context) {
 		FROM security_events %s
 		ORDER BY timestamp DESC LIMIT 500`, where)
 
-	rows, err := h.DB.Query(q, args...)
+	rows, err := h.db.Query(q, args...)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "query failed"})
 		return
