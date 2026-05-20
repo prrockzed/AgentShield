@@ -149,11 +149,11 @@ Agent → ToolInterceptor → Security Engine → ALLOW/BLOCK
 
 ## Project Status
 
-**Current milestone:** M1 — Core Security Foundation (Phases 0–5) — Phases 0 and 1 complete
+**Current milestone:** M1 — Core Security Foundation (Phases 0–5) — Phases 0, 1, 2, 3, and 4 complete
 
 | Milestone | Phases | Status |
 |-----------|--------|--------|
-| M1 — Core Security Foundation | 0–5 | In progress (0, 1 done) |
+| M1 — Core Security Foundation | 0–5 | In progress (0–4 done) |
 | M2 — Sandbox & Real-Time Platform | 6–9 | Not started |
 | M3 — Advanced Threat Detection | 10–13 | Not started |
 | M4 — Full Security Coverage | 14–17 | Not started |

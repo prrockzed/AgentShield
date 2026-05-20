@@ -17,18 +17,34 @@ class InterceptResult:
     reason: str = ""
 
 
-def intercept_input(run_id: str, agent_type: str, task: str) -> InterceptResult:
-    result = InterceptResult(decision="ALLOWED")
+def intercept_prompt(run_id: str, content: str, source: str) -> InterceptResult:
+    try:
+        with httpx.Client(timeout=5.0) as client:
+            resp = client.post(
+                f"{_SE_URL}/intercept/prompt",
+                json={"run_id": run_id, "content": content, "source": source},
+            )
+            data = resp.json()
+            result = InterceptResult(decision=data["decision"], reason=data.get("reason", ""))
+    except Exception as exc:
+        logger.warning("intercept_prompt: security-engine unreachable: %s", exc)
+        result = InterceptResult(decision="ALLOWED", reason="")
+
+    severity = {"BLOCKED": "CRITICAL", "FLAGGED": "HIGH"}.get(result.decision, "INFO")
     publish_event({
         "run_id":     run_id,
         "event_type": "PROMPT_SCAN",
-        "source":     "prompt_interceptor_stub",
-        "payload":    {"agent_type": agent_type, "task_length": len(task)},
+        "source":     "prompt_interceptor",
+        "payload":    {"content_length": len(content), "source": source},
         "decision":   result.decision,
         "reason":     result.reason or None,
-        "severity":   "INFO",
+        "severity":   severity,
     })
     return result
+
+
+def intercept_input(run_id: str, agent_type: str, task: str) -> InterceptResult:
+    return intercept_prompt(run_id, task, "USER_INPUT")
 
 
 def intercept_tool_call(run_id: str, tool_name: str, tool_input: str) -> InterceptResult:
