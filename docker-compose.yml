@@ -100,6 +100,10 @@ services:
     env_file: .env
     environment:
       GATEWAY_URL: "http://gateway:8080"
+      SECURITY_ENGINE_URL: "http://security-engine:8001"
+    depends_on:
+      security-engine:
+        condition: service_healthy
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
@@ -119,6 +123,8 @@ services:
     networks:
       - agentshield-net
     env_file: .env
+    ports:
+      - "8001:8001"
     depends_on:
       redis:
         condition: service_healthy
