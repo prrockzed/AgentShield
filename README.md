@@ -136,14 +136,19 @@ Agent → ToolInterceptor → Security Engine → ALLOW/BLOCK
 
 ## Service Ports
 
-| Service | URL | Purpose |
-|---------|-----|---------|
-| Security Console | http://localhost:3000 | Main operator UI |
-| API Gateway | http://localhost:8080 | REST API + WebSocket |
-| API Docs | http://localhost:8080/api/docs | Auto-generated Swagger |
-| Prometheus | http://localhost:9090 | Metrics |
-| Grafana | http://localhost:3001 | Live dashboards |
-| PostgreSQL | localhost:5432 | Direct DB access (dev) |
+| Port | Service | URL | Notes |
+|------|---------|-----|-------|
+| 3000 | Frontend | http://localhost:3000 | Operator security console (Next.js) |
+| 8080 | Gateway | http://localhost:8080 | REST API (`/api/*`) + WebSocket (`/ws/events`) |
+| 8000 | Runtime | http://localhost:8000 | Agent execution — `/execute`, `/agents`, `/models` |
+| 8001 | Security Engine | http://localhost:8001 | Interceptors — `/intercept/prompt`, `/intercept/tool`, `/intercept/output` |
+| 8002 | Sandbox Manager | http://localhost:8002 | Container lifecycle — `/sandbox/*` |
+| 4222 | NATS | nats://localhost:4222 | JetStream event bus (TCP) |
+| 8222 | NATS monitoring | http://localhost:8222 | NATS HTTP monitoring UI |
+| 5432 | PostgreSQL | localhost:5432 | Direct DB access (dev) |
+| 6379 | Redis | localhost:6379 | Cache (dev) |
+| 9090 | Prometheus | http://localhost:9090 | Metrics query UI (Phase 19) |
+| 3001 | Grafana | http://localhost:3001 | Live dashboards (Phase 19) |
 
 ---
 
