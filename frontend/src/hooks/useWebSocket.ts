@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { useEventStore } from '@/store/events'
+import { useAuthStore } from '@/store/auth'
 import type { SecurityEvent } from '@/lib/types'
 
 const BASE_WS = (process.env.NEXT_PUBLIC_GATEWAY_URL ?? 'http://localhost:8080')
@@ -12,16 +13,19 @@ const MAX_BACKOFF = 30_000
 export function useWebSocket() {
   const addEvent    = useEventStore((s) => s.addEvent)
   const setConnected = useEventStore((s) => s.setConnected)
+  const accessToken = useAuthStore((s) => s.accessToken)
   const retryDelay  = useRef(1000)
   const timerRef    = useRef<ReturnType<typeof setTimeout> | null>(null)
   const wsRef       = useRef<WebSocket | null>(null)
 
   useEffect(() => {
+    if (!accessToken) return
+
     let cancelled = false
 
     function connect() {
       if (cancelled) return
-      const ws = new WebSocket(`${BASE_WS}/ws/events`)
+      const ws = new WebSocket(`${BASE_WS}/ws/events?token=${accessToken}`)
       wsRef.current = ws
 
       ws.onopen = () => {
@@ -58,5 +62,5 @@ export function useWebSocket() {
       if (timerRef.current) clearTimeout(timerRef.current)
       wsRef.current?.close()
     }
-  }, [addEvent, setConnected])
+  }, [addEvent, setConnected, accessToken])
 }

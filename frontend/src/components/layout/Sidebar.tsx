@@ -1,10 +1,11 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Plus, List, Radio, Shield } from 'lucide-react'
+import { usePathname, useRouter } from 'next/navigation'
+import { LayoutDashboard, Plus, List, Radio, Shield, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useEventStore } from '@/store/events'
+import { useAuthStore } from '@/store/auth'
 
 const nav = [
   { href: '/',           label: 'Dashboard',  icon: LayoutDashboard },
@@ -15,8 +16,10 @@ const nav = [
 ]
 
 export default function Sidebar() {
-  const pathname   = usePathname()
-  const connected  = useEventStore((s) => s.connected)
+  const pathname    = usePathname()
+  const router      = useRouter()
+  const connected   = useEventStore((s) => s.connected)
+  const clearTokens = useAuthStore((s) => s.clearTokens)
 
   return (
     <aside className="w-56 flex-shrink-0 bg-gray-900 border-r border-gray-800 flex flex-col h-screen">
@@ -45,16 +48,25 @@ export default function Sidebar() {
         })}
       </nav>
 
-      <div className="px-4 py-4 border-t border-gray-800 flex items-center gap-2">
-        <span
-          className={cn(
-            'h-2 w-2 rounded-full',
-            connected ? 'bg-green-500' : 'bg-gray-600'
-          )}
-        />
-        <span className="text-xs text-gray-400">
-          {connected ? 'Live' : 'Disconnected'}
-        </span>
+      <div className="px-4 py-4 border-t border-gray-800 space-y-2">
+        <div className="flex items-center gap-2">
+          <span
+            className={cn(
+              'h-2 w-2 rounded-full',
+              connected ? 'bg-green-500' : 'bg-gray-600'
+            )}
+          />
+          <span className="text-xs text-gray-400">
+            {connected ? 'Live' : 'Disconnected'}
+          </span>
+        </div>
+        <button
+          onClick={() => { clearTokens(); router.push('/login') }}
+          className="flex items-center gap-2 text-xs text-gray-500 hover:text-gray-300 w-full mt-2"
+        >
+          <LogOut className="h-3 w-3" />
+          Sign out
+        </button>
       </div>
     </aside>
   )

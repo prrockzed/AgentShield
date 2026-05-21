@@ -13,9 +13,11 @@ import (
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	_ "github.com/lib/pq"
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/prrockzed/agentshield/gateway/db"
 	"github.com/prrockzed/agentshield/gateway/internal/handlers"
+	"github.com/prrockzed/agentshield/gateway/internal/middleware"
 	natscons "github.com/prrockzed/agentshield/gateway/internal/nats"
 	"github.com/prrockzed/agentshield/gateway/internal/ws"
 )
@@ -63,6 +65,9 @@ func main() {
 	}
 	log.Println("migrations applied")
 
+	// --- Seed admin user ---
+	seedAdmin(sqlDB)
+
 	// --- WebSocket Hub ---
 	hub := ws.NewHub()
 
@@ -77,10 +82,13 @@ func main() {
 	port := getEnv("GATEWAY_PORT", "8080")
 	runtimeURL := getEnv("RUNTIME_URL", "http://runtime:8000")
 	r := gin.Default()
+
+	r.Use(middleware.RequestID())
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"http://localhost:3000"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "X-Request-ID"},
+		ExposeHeaders:    []string{"X-Request-ID"},
 		AllowCredentials: true,
 	}))
 
@@ -89,23 +97,53 @@ func main() {
 	})
 
 	h := handlers.NewHandler(sqlDB, hub, runtimeURL)
-	api := r.Group("/api")
+
+	// Public — no auth required
+	authGroup := r.Group("/api/auth")
+	{
+		authGroup.POST("/login", h.Login)
+		authGroup.POST("/refresh", h.Refresh)
+	}
+
+	// Protected — JWT required
+	api := r.Group("/api", middleware.RequireAuth())
 	{
 		api.GET("/agents", h.ListAgents)
 		api.GET("/models", h.ListModels)
-		api.POST("/runs", h.SubmitRun)
+		api.POST("/runs", middleware.RateLimitRuns(), h.SubmitRun)
 		api.GET("/runs", h.ListRuns)
 		api.GET("/runs/:id", h.GetRun)
 		api.POST("/events", h.CreateEvent)
 		api.GET("/events", h.ListEvents)
 	}
 
+	// WebSocket — token via ?token= query param
 	r.GET("/ws/events", h.WebSocketEvents)
 
 	log.Printf("gateway listening on :%s", port)
 	if err := r.Run(":" + port); err != nil {
 		log.Fatalf("server error: %v", err)
 	}
+}
+
+func seedAdmin(db *sql.DB) {
+	email := os.Getenv("ADMIN_EMAIL")
+	password := os.Getenv("ADMIN_PASSWORD")
+	if email == "" || password == "" {
+		log.Println("seed: ADMIN_EMAIL/ADMIN_PASSWORD not set — skipping")
+		return
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		log.Fatalf("seed: bcrypt: %v", err)
+	}
+	if _, err = db.Exec(
+		`INSERT INTO users (email, password_hash) VALUES ($1, $2) ON CONFLICT (email) DO NOTHING`,
+		email, string(hash),
+	); err != nil {
+		log.Fatalf("seed: insert: %v", err)
+	}
+	log.Printf("seed: admin %q ready", email)
 }
 
 func getEnv(key, fallback string) string {
