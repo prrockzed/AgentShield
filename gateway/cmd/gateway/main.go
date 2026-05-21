@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
@@ -74,15 +75,27 @@ func main() {
 
 	// --- HTTP ---
 	port := getEnv("GATEWAY_PORT", "8080")
+	runtimeURL := getEnv("RUNTIME_URL", "http://runtime:8000")
 	r := gin.Default()
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:3000"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		AllowCredentials: true,
+	}))
 
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok", "service": "gateway"})
 	})
 
-	h := handlers.NewHandler(sqlDB, hub)
+	h := handlers.NewHandler(sqlDB, hub, runtimeURL)
 	api := r.Group("/api")
 	{
+		api.GET("/agents", h.ListAgents)
+		api.GET("/models", h.ListModels)
+		api.POST("/runs", h.SubmitRun)
+		api.GET("/runs", h.ListRuns)
+		api.GET("/runs/:id", h.GetRun)
 		api.POST("/events", h.CreateEvent)
 		api.GET("/events", h.ListEvents)
 	}

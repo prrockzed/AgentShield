@@ -13,13 +13,14 @@ import (
 
 // Handler holds shared dependencies for all HTTP and WebSocket handlers.
 type Handler struct {
-	db  *sql.DB
-	hub *ws.Hub
+	db         *sql.DB
+	hub        *ws.Hub
+	runtimeURL string
 }
 
-// NewHandler creates a Handler wired to the given DB and WebSocket hub.
-func NewHandler(db *sql.DB, hub *ws.Hub) *Handler {
-	return &Handler{db: db, hub: hub}
+// NewHandler creates a Handler wired to the given DB, WebSocket hub, and runtime URL.
+func NewHandler(db *sql.DB, hub *ws.Hub, runtimeURL string) *Handler {
+	return &Handler{db: db, hub: hub, runtimeURL: runtimeURL}
 }
 
 // InsertEvent persists a security event to PostgreSQL and returns the created record.

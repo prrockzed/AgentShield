@@ -75,6 +75,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-agentshield}
       GATEWAY_PORT: "8080"
       NATS_URL: "nats://nats:4222"
+      RUNTIME_URL: "http://runtime:8000"
     ports:
       - "8080:8080"
     depends_on:
@@ -98,6 +99,9 @@ services:
       dockerfile: Dockerfile
     networks:
       - agentshield-net
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     env_file: .env
     environment:
       GATEWAY_URL: "http://gateway:8080"
@@ -174,6 +178,8 @@ services:
     networks:
       - agentshield-net
     env_file: .env
+    environment:
+      NEXT_PUBLIC_GATEWAY_URL: "http://localhost:8080"
     ports:
       - "3000:3000"
     depends_on:

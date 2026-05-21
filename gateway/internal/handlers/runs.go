@@ -1,0 +1,137 @@
+package handlers
+
+import (
+	"bytes"
+	"database/sql"
+	"encoding/json"
+	"io"
+	"net/http"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/prrockzed/agentshield/gateway/internal/models"
+)
+
+// runtimeClient is a dedicated HTTP client with a long timeout for agent runs.
+var runtimeClient = &http.Client{Timeout: 5 * time.Minute}
+
+func (h *Handler) SubmitRun(c *gin.Context) {
+	var req models.SubmitRunRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	body, _ := json.Marshal(req)
+	resp, err := runtimeClient.Post(h.runtimeURL+"/execute", "application/json", bytes.NewReader(body))
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "runtime unavailable"})
+		return
+	}
+	defer resp.Body.Close()
+
+	// Forward 403 (injection blocked) directly.
+	if resp.StatusCode == http.StatusForbidden {
+		blocked, _ := io.ReadAll(resp.Body)
+		c.Data(http.StatusForbidden, "application/json", blocked)
+		return
+	}
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		errBody, _ := io.ReadAll(resp.Body)
+		c.Data(resp.StatusCode, "application/json", errBody)
+		return
+	}
+
+	var rr models.RuntimeExecuteResponse
+	if err := json.NewDecoder(resp.Body).Decode(&rr); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to decode runtime response"})
+		return
+	}
+
+	const q = `
+		INSERT INTO agent_runs (id, task, agent_type, model, status, output, steps)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		ON CONFLICT (id) DO UPDATE
+		  SET task = EXCLUDED.task, status = EXCLUDED.status,
+		      output = EXCLUDED.output, steps = EXCLUDED.steps
+		RETURNING id, task, status, agent_type, model, output, steps, created_at`
+
+	stepsJSON := rr.Steps
+	if len(stepsJSON) == 0 {
+		stepsJSON = json.RawMessage("[]")
+	}
+
+	row := h.db.QueryRow(q, rr.RunID, req.Task, rr.AgentType, rr.Model, rr.Status, rr.Output, []byte(stepsJSON))
+	run, err := scanRun(row.Scan)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to persist run"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, run)
+}
+
+func (h *Handler) ListRuns(c *gin.Context) {
+	const q = `
+		SELECT id, task, status, agent_type, model, output, steps, created_at
+		FROM agent_runs ORDER BY created_at DESC LIMIT 100`
+
+	rows, err := h.db.Query(q)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "query failed"})
+		return
+	}
+	defer rows.Close()
+
+	runs := []models.Run{}
+	for rows.Next() {
+		run, err := scanRun(rows.Scan)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "scan failed"})
+			return
+		}
+		runs = append(runs, run)
+	}
+
+	c.JSON(http.StatusOK, runs)
+}
+
+func (h *Handler) GetRun(c *gin.Context) {
+	id := c.Param("id")
+
+	const q = `
+		SELECT id, task, status, agent_type, model, output, steps, created_at
+		FROM agent_runs WHERE id = $1`
+
+	row := h.db.QueryRow(q, id)
+	run, err := scanRun(row.Scan)
+	if err == sql.ErrNoRows {
+		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "scan failed"})
+		return
+	}
+
+	c.JSON(http.StatusOK, run)
+}
+
+func scanRun(scan func(...any) error) (models.Run, error) {
+	var run models.Run
+	var stepsRaw []byte
+	err := scan(
+		&run.ID, &run.Task, &run.Status, &run.AgentType, &run.Model,
+		&run.Output, &stepsRaw, &run.CreatedAt,
+	)
+	if err != nil {
+		return run, err
+	}
+	if len(stepsRaw) > 0 {
+		run.Steps = json.RawMessage(stepsRaw)
+	} else {
+		run.Steps = json.RawMessage("[]")
+	}
+	return run, nil
+}
