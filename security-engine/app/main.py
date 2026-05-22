@@ -1,11 +1,27 @@
+import logging
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from pydantic import BaseModel
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(name)s %(levelname)s %(message)s",
+)
+
+from app.intelligence.loader import prewarm
 from app.interceptors.tool_interceptor import evaluate_shell_command
 from app.interceptors.prompt_interceptor import evaluate_prompt
 from app.interceptors.output_interceptor import evaluate_output
 
-app = FastAPI(title="AgentShield Security Engine")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    prewarm()
+    yield
+
+
+app = FastAPI(title="AgentShield Security Engine", lifespan=lifespan)
 
 
 class InterceptToolRequest(BaseModel):
@@ -43,6 +59,7 @@ class InterceptPromptResponse(BaseModel):
     decision: str
     reason: str
     score: float
+    matched_signature_id: str | None = None   # Phase 10
 
 
 @app.post("/intercept/prompt", response_model=InterceptPromptResponse)

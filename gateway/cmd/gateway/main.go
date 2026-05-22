@@ -115,6 +115,13 @@ func main() {
 		api.GET("/runs/:id", h.GetRun)
 		api.POST("/events", h.CreateEvent)
 		api.GET("/events", h.ListEvents)
+
+		intel := api.Group("/intelligence")
+		{
+			intel.GET("/signatures", h.ListSignatures)
+			intel.POST("/signatures", h.CreateSignature)
+			intel.GET("/stats", h.GetIntelligenceStats)
+		}
 	}
 
 	// WebSocket — token via ?token= query param

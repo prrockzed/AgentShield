@@ -1,5 +1,10 @@
 import base64
+import logging
 import re
+
+from app.intelligence.loader import get_signatures
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Compiled pattern list: (pattern, reason_str, weight)
@@ -174,6 +179,27 @@ def _detect_html(content: str) -> tuple[float, str | None]:
     return score, reason
 
 
+def _match_db_signatures(content: str) -> tuple[str | None, str | None]:
+    """
+    Match against DB-loaded threat signatures.
+    Returns (matched_id, description) or (None, None).
+    SEMANTIC falls back to REGEX for Phase 10 MVP.
+    """
+    for sig in get_signatures():
+        pat_type = sig["pattern_type"]
+        pattern  = sig["pattern"]
+        try:
+            if pat_type in ("REGEX", "SEMANTIC"):
+                if re.search(pattern, content, re.IGNORECASE | re.DOTALL):
+                    return sig["id"], sig["description"] or sig["category"]
+            elif pat_type == "SUBSTRING":
+                if pattern.lower() in content.lower():
+                    return sig["id"], sig["description"] or sig["category"]
+        except re.error as exc:
+            logger.warning("loader: invalid regex %r: %s", pattern, exc)
+    return None, None
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -206,11 +232,24 @@ def evaluate_prompt(content: str, source: str) -> dict:
 
     total_score = min(total_score, 1.0)
 
+    # DB signature layer (runs after hardcoded patterns)
+    matched_id, matched_desc = _match_db_signatures(content)
+    if matched_id and not top_reason:
+        top_reason = matched_desc or ""
+
     if total_score >= 0.6:
         decision = "BLOCKED"
     elif total_score >= 0.3:
         decision = "FLAGGED"
+    elif matched_id:
+        decision = "FLAGGED"          # DB hit even when score was low
+        total_score = max(total_score, 0.3)
     else:
         decision = "ALLOWED"
 
-    return {"decision": decision, "reason": top_reason, "score": round(total_score, 4)}
+    return {
+        "decision":             decision,
+        "reason":               top_reason,
+        "score":                round(total_score, 4),
+        "matched_signature_id": matched_id,
+    }

@@ -4,6 +4,7 @@ import uuid
 
 import httpx
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse
 
 from app.agents import AGENT_REGISTRY
 from app.agents.base import build_agent
@@ -98,7 +99,10 @@ async def execute(request: ExecuteRequest):
 
     input_result = intercept_input(run_id, request.agent_type, request.task)
     if input_result.decision != "ALLOWED":
-        raise HTTPException(status_code=403, detail=input_result.reason or "Blocked by input interceptor")
+        return JSONResponse(
+            status_code=403,
+            content={"detail": input_result.reason or "Blocked by input interceptor", "run_id": run_id},
+        )
 
     agent = build_agent(module.TOOLS, module.SYSTEM_PROMPT, request.model)
 

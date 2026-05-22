@@ -32,7 +32,7 @@ export default function RunDetailPage({ params }: Props) {
         ) : run ? (
           <>
             <span className="font-mono text-sm text-muted-foreground">{run.id}</span>
-            <Badge variant={run.status === 'completed' ? 'default' : 'secondary'}>
+            <Badge variant={run.status === 'completed' ? 'default' : run.status === 'blocked' ? 'destructive' : 'secondary'}>
               {run.status}
             </Badge>
             <span className="text-sm text-muted-foreground ml-auto">{fmtDate(run.created_at)}</span>

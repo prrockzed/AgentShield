@@ -154,13 +154,13 @@ Agent → ToolInterceptor → Security Engine → ALLOW/BLOCK
 
 ## Project Status
 
-**Current milestone:** M3 — Advanced Threat Detection (Phases 10–13) — **Not started**
+**Current milestone:** M3 — Advanced Threat Detection (Phases 10–13) — **In progress (1/4)**
 
 | Milestone | Phases | Status |
 |-----------|--------|--------|
 | M1 — Core Security Foundation | 0–5 | **Complete** |
 | M2 — Sandbox & Real-Time Platform | 6–9 | **Complete** |
-| M3 — Advanced Threat Detection | 10–13 | Not started |
+| M3 — Advanced Threat Detection | 10–13 | In progress — Phase 10 complete |
 | M4 — Full Security Coverage | 14–17 | Not started |
 | M5 — Self-Testing & Production | 18–20 | Not started |
 

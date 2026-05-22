@@ -134,12 +134,20 @@ services:
     networks:
       - agentshield-net
     env_file: .env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB:-agentshield}
+      POSTGRES_USER: ${POSTGRES_USER:-agentshield}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-agentshield}
     ports:
       - "8001:8001"
     depends_on:
       redis:
         condition: service_healthy
       nats:
+        condition: service_healthy
+      postgres:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8001/health"]

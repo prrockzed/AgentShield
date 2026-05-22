@@ -10,6 +10,7 @@ import { fmtDate, shortID } from '@/lib/utils'
 
 function statusVariant(status: string) {
   if (status === 'completed') return 'default'
+  if (status === 'blocked')   return 'destructive'
   if (status === 'failed')    return 'outline'
   return 'secondary'
 }

@@ -26,20 +26,23 @@ def intercept_prompt(run_id: str, content: str, source: str) -> InterceptResult:
                 json={"run_id": run_id, "content": content, "source": source},
             )
             data = resp.json()
+            matched_signature_id = data.get("matched_signature_id")
             result = InterceptResult(decision=data["decision"], reason=data.get("reason", ""))
     except Exception as exc:
         logger.warning("intercept_prompt: security-engine unreachable: %s", exc)
+        matched_signature_id = None
         result = InterceptResult(decision="ALLOWED", reason="")
 
     severity = {"BLOCKED": "CRITICAL", "FLAGGED": "HIGH"}.get(result.decision, "INFO")
     publish_event({
-        "run_id":     run_id,
-        "event_type": "PROMPT_SCAN",
-        "source":     "prompt_interceptor",
-        "payload":    {"content_length": len(content), "source": source},
-        "decision":   result.decision,
-        "reason":     result.reason or None,
-        "severity":   severity,
+        "run_id":                run_id,
+        "event_type":            "PROMPT_SCAN",
+        "source":                "prompt_interceptor",
+        "payload":               {"content_length": len(content), "source": source},
+        "decision":              result.decision,
+        "reason":                result.reason or None,
+        "severity":              severity,
+        "matched_signature_id":  matched_signature_id,
     })
     return result
 

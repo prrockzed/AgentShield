@@ -37,7 +37,11 @@ export default function RunForm() {
 
     if (resp.status === 403) {
       const body = await resp.json()
-      setBlockedMsg(body.detail ?? JSON.stringify(body))
+      if (body.run_id) {
+        router.push(`/runs/${body.run_id}`)
+      } else {
+        setBlockedMsg(body.detail ?? JSON.stringify(body))
+      }
       return
     }
 

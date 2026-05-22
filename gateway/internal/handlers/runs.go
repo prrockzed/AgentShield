@@ -30,9 +30,21 @@ func (h *Handler) SubmitRun(c *gin.Context) {
 	}
 	defer resp.Body.Close()
 
-	// Forward 403 (injection blocked) directly.
+	// Persist blocked run then forward 403.
 	if resp.StatusCode == http.StatusForbidden {
 		blocked, _ := io.ReadAll(resp.Body)
+		var b403 struct {
+			Detail string `json:"detail"`
+			RunID  string `json:"run_id"`
+		}
+		if err := json.Unmarshal(blocked, &b403); err == nil && b403.RunID != "" {
+			h.db.Exec(
+				`INSERT INTO agent_runs (id, task, agent_type, model, status, output, steps)
+				 VALUES ($1, $2, $3, $4, 'blocked', $5, '[]')
+				 ON CONFLICT (id) DO NOTHING`,
+				b403.RunID, req.Task, req.AgentType, req.Model, b403.Detail,
+			)
+		}
 		c.Data(http.StatusForbidden, "application/json", blocked)
 		return
 	}
