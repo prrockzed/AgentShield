@@ -1,7 +1,7 @@
 import httpx
 from langchain_core.tools import tool
 
-from app.interceptors import intercept_prompt
+from app.interceptors import intercept_prompt, intercept_network
 from app.tools.shell_exec import _run_id_ctx
 
 _TRUNCATE = 8000
@@ -11,12 +11,19 @@ _TRUNCATE = 8000
 def http_fetch(url: str) -> str:
     """Fetch a URL via HTTP GET and return the response body."""
     run_id = _run_id_ctx.get()
+
+    # Pre-request: block malicious URLs before any connection is made
+    net_result = intercept_network(run_id, url, "GET")
+    if net_result.decision != "ALLOWED":
+        return f"Error: request blocked by network security policy — {net_result.reason}"
+
     try:
         with httpx.Client(timeout=15) as client:
             response = client.get(url)
             content = response.text[:_TRUNCATE]
     except Exception as exc:
         return f"Error: {exc}"
+
     result = intercept_prompt(run_id, content, "FETCHED_CONTENT")
     if result.decision == "BLOCKED":
         return f"Error: fetched content blocked by security policy — {result.reason}"

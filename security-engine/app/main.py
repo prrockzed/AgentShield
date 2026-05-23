@@ -14,6 +14,7 @@ from app.interceptors.tool_interceptor import evaluate_shell_command
 from app.interceptors.prompt_interceptor import evaluate_prompt
 from app.interceptors.output_interceptor import evaluate_output
 from app.behavioral.analyzer import analyze as behavioral_analyze
+from app.interceptors.network_interceptor import evaluate_network_request
 
 
 @asynccontextmanager
@@ -109,3 +110,20 @@ async def intercept_output_endpoint(request: InterceptOutputRequest):
 def analyze_behavior(req: AnalyzeBehaviorRequest):
     result = behavioral_analyze(req.run_id, req.tool_name, req.command)
     return result
+
+
+class InterceptNetworkRequest(BaseModel):
+    run_id: str
+    url:    str
+    method: str = "GET"
+
+
+class InterceptNetworkResponse(BaseModel):
+    decision: str
+    reason:   str
+
+
+@app.post("/intercept/network", response_model=InterceptNetworkResponse)
+async def intercept_network_endpoint(request: InterceptNetworkRequest):
+    result = evaluate_network_request(request.url, request.method)
+    return InterceptNetworkResponse(**result)

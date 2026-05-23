@@ -136,6 +136,38 @@ def intercept_tool_call(run_id: str, tool_name: str, tool_input: str) -> Interce
     return result
 
 
+def intercept_network(run_id: str, url: str, method: str = "GET") -> InterceptResult:
+    """
+    POST /intercept/network on the security-engine.
+    Publishes a NETWORK_INTERCEPT event.
+    Returns ALLOWED on any network error (fail-open).
+    """
+    try:
+        with httpx.Client(timeout=5.0) as client:
+            resp = client.post(
+                f"{_SE_URL}/intercept/network",
+                json={"run_id": run_id, "url": url, "method": method},
+            )
+            data = resp.json()
+            result = InterceptResult(decision=data["decision"], reason=data.get("reason", ""))
+    except Exception as exc:
+        logger.warning("intercept_network: security-engine unreachable: %s", exc)
+        result = InterceptResult(decision="ALLOWED", reason="")
+
+    severity = "HIGH" if result.decision == "BLOCKED" else "INFO"
+    publish_event({
+        "run_id":     run_id,
+        "event_type": "NETWORK_INTERCEPT",
+        "source":     "network_interceptor",
+        "payload":    {"url": url, "method": method},
+        "decision":   result.decision,
+        "reason":     result.reason or None,
+        "severity":   severity,
+    })
+
+    return result
+
+
 def intercept_output(run_id: str, output: str) -> InterceptResult:
     try:
         with httpx.Client(timeout=5.0) as client:

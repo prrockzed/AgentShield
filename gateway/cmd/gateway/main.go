@@ -123,6 +123,12 @@ func main() {
 			intel.POST("/signatures", h.CreateSignature)
 			intel.GET("/stats", h.GetIntelligenceStats)
 		}
+
+		policies := api.Group("/policies")
+		{
+			policies.GET("/network", h.GetNetworkPolicies)
+			policies.POST("/network/allow", h.CreateNetworkPolicy)
+		}
 	}
 
 	// WebSocket — token via ?token= query param
