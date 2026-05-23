@@ -10,6 +10,51 @@ logger = logging.getLogger(__name__)
 
 _SE_URL = os.getenv("SECURITY_ENGINE_URL", "http://security-engine:8001")
 
+_terminated_runs: set[str] = set()
+
+
+def is_terminated(run_id: str) -> bool:
+    return run_id in _terminated_runs
+
+
+def cleanup_run(run_id: str) -> None:
+    _terminated_runs.discard(run_id)
+
+
+def analyze_behavior(run_id: str, tool_name: str, command: str | None = None) -> str:
+    """
+    POST /analyze/behavior on the security-engine.
+    Publishes a BEHAVIORAL_ALERT event for each newly-fired rule.
+    Returns 'OK' | 'WARN' | 'TERMINATE'. Never raises.
+    """
+    try:
+        with httpx.Client(timeout=3.0) as client:
+            resp = client.post(
+                f"{_SE_URL}/analyze/behavior",
+                json={"run_id": run_id, "tool_name": tool_name, "command": command},
+            )
+            data = resp.json()
+    except Exception as exc:
+        logger.warning("analyze_behavior: security-engine unreachable: %s", exc)
+        return "OK"
+
+    for alert in data.get("alerts", []):
+        publish_event({
+            "run_id":     run_id,
+            "event_type": "BEHAVIORAL_ALERT",
+            "source":     "behavioral_analyzer",
+            "payload":    {
+                "rule":     alert["rule"],
+                "message":  alert["message"],
+                "counters": data.get("counters", {}),
+            },
+            "decision":   "BLOCKED" if alert["verdict"] == "TERMINATE" else "FLAGGED",
+            "reason":     alert["rule"],
+            "severity":   alert["severity"],
+        })
+
+    return data.get("verdict", "OK")
+
 
 @dataclass
 class InterceptResult:
@@ -52,6 +97,11 @@ def intercept_input(run_id: str, agent_type: str, task: str) -> InterceptResult:
 
 
 def intercept_tool_call(run_id: str, tool_name: str, tool_input: str) -> InterceptResult:
+    # Fast-path: run already terminated by a prior behavioral verdict
+    if is_terminated(run_id):
+        return InterceptResult(decision="BLOCKED", reason="Run terminated by behavioral policy")
+
+    # ── Existing security-engine tool intercept ─────────────────────────
     try:
         with httpx.Client(timeout=5.0) as client:
             resp = client.post(
@@ -74,6 +124,15 @@ def intercept_tool_call(run_id: str, tool_name: str, tool_input: str) -> Interce
         "reason":     result.reason or None,
         "severity":   severity,
     })
+
+    # ── Behavioral analysis (always runs) ───────────────────────────────
+    shell_tools = {"shell", "bash", "run_shell", "execute_command", "exec", "shell_exec"}
+    cmd = tool_input if tool_name.lower() in shell_tools else None
+    b_verdict = analyze_behavior(run_id, tool_name, cmd)
+    if b_verdict == "TERMINATE":
+        _terminated_runs.add(run_id)
+        result = InterceptResult(decision="BLOCKED", reason="Run terminated by behavioral policy")
+
     return result
 
 

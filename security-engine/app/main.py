@@ -13,6 +13,7 @@ from app.intelligence.loader import prewarm
 from app.interceptors.tool_interceptor import evaluate_shell_command
 from app.interceptors.prompt_interceptor import evaluate_prompt
 from app.interceptors.output_interceptor import evaluate_output
+from app.behavioral.analyzer import analyze as behavioral_analyze
 
 
 @asynccontextmanager
@@ -22,6 +23,25 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="AgentShield Security Engine", lifespan=lifespan)
+
+
+class AnalyzeBehaviorRequest(BaseModel):
+    run_id:    str
+    tool_name: str
+    command:   str | None = None
+
+
+class AlertInfo(BaseModel):
+    rule:     str
+    severity: str
+    verdict:  str
+    message:  str
+
+
+class AnalyzeBehaviorResponse(BaseModel):
+    verdict:  str                    # OK | WARN | TERMINATE
+    alerts:   list[AlertInfo] = []
+    counters: dict            = {}
 
 
 class InterceptToolRequest(BaseModel):
@@ -83,3 +103,9 @@ class InterceptOutputResponse(BaseModel):
 async def intercept_output_endpoint(request: InterceptOutputRequest):
     result = evaluate_output(request.content)
     return InterceptOutputResponse(**result)
+
+
+@app.post("/analyze/behavior", response_model=AnalyzeBehaviorResponse)
+def analyze_behavior(req: AnalyzeBehaviorRequest):
+    result = behavioral_analyze(req.run_id, req.tool_name, req.command)
+    return result

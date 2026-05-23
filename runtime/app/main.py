@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from app.agents import AGENT_REGISTRY
 from app.agents.base import build_agent
 from app.interceptors import intercept_input, intercept_output
+from app.interceptors.stubs import is_terminated, cleanup_run
 from app.schemas import AgentInfo, ExecuteRequest, ExecuteResponse, ModelInfo
 from app.tools import _run_id_ctx, _sandbox_id_ctx
 import app.trace as trace
@@ -110,13 +111,29 @@ async def execute(request: ExecuteRequest):
 
     run_token = _run_id_ctx.set(run_id)
     sbx_token = _sandbox_id_ctx.set(sandbox_id)
+    agent_error: str | None = None
     try:
         result = agent.invoke({"messages": [{"role": "user", "content": request.task}]})
+    except Exception as exc:
+        logger.error("agent.invoke failed for run %s: %s", run_id, exc)
+        agent_error = str(exc)
+        result = {}
     finally:
         _run_id_ctx.reset(run_token)
         _sandbox_id_ctx.reset(sbx_token)
         if sandbox_id:
             _destroy_sandbox(sandbox_id)
+
+    if agent_error:
+        cleanup_run(run_id)
+        return ExecuteResponse(
+            run_id=run_id,
+            agent_type=request.agent_type,
+            model=request.model,
+            output=f"[Agent error] {agent_error}",
+            steps=[],
+            status="failed",
+        )
 
     messages = result.get("messages", [])
     output = messages[-1].content if messages else ""
@@ -127,11 +144,14 @@ async def execute(request: ExecuteRequest):
     elif output_result.decision == "BLOCKED":
         output = f"[Blocked] {output_result.reason}"
 
+    status = "terminated" if is_terminated(run_id) else "completed"
+    cleanup_run(run_id)
+
     return ExecuteResponse(
         run_id=run_id,
         agent_type=request.agent_type,
         model=request.model,
         output=output,
         steps=trace.get_steps(run_id),
-        status="completed",
+        status=status,
     )

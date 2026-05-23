@@ -113,6 +113,7 @@ func main() {
 		api.POST("/runs", middleware.RateLimitRuns(), h.SubmitRun)
 		api.GET("/runs", h.ListRuns)
 		api.GET("/runs/:id", h.GetRun)
+		api.GET("/runs/:id/behavior", h.GetRunBehavior)
 		api.POST("/events", h.CreateEvent)
 		api.GET("/events", h.ListEvents)
 
