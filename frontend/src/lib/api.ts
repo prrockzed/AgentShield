@@ -48,8 +48,10 @@ export interface EventsParams {
 
 export async function fetchEvents(params?: EventsParams): Promise<SecurityEvent[]> {
   const qs = new URLSearchParams()
-  if (params?.run_id)    qs.set('run_id', params.run_id)
-  if (params?.severity)  qs.set('severity', params.severity)
+  if (params?.run_id)     qs.set('run_id',     params.run_id)
+  if (params?.severity)   qs.set('severity',   params.severity)
+  if (params?.event_type) qs.set('event_type', params.event_type)
+  if (params?.decision)   qs.set('decision',   params.decision)
   const url = `${BASE}/api/events${qs.toString() ? '?' + qs.toString() : ''}`
   const res = await apiFetch(url)
   if (!res.ok) throw new Error('Failed to fetch events')

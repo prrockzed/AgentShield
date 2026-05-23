@@ -79,8 +79,10 @@ func (h *Handler) CreateEvent(c *gin.Context) {
 }
 
 func (h *Handler) ListEvents(c *gin.Context) {
-	runID := c.Query("run_id")
-	severity := c.Query("severity")
+	runID     := c.Query("run_id")
+	severity  := c.Query("severity")
+	eventType := c.Query("event_type")
+	decision  := c.Query("decision")
 
 	where := "WHERE 1=1"
 	args := []any{}
@@ -94,7 +96,19 @@ func (h *Handler) ListEvents(c *gin.Context) {
 	if severity != "" {
 		where += fmt.Sprintf(" AND severity = $%d", i)
 		args = append(args, severity)
+		i++
 	}
+	if eventType != "" {
+		where += fmt.Sprintf(" AND event_type = $%d", i)
+		args = append(args, eventType)
+		i++
+	}
+	if decision != "" {
+		where += fmt.Sprintf(" AND decision = $%d", i)
+		args = append(args, decision)
+		i++
+	}
+	_ = i
 
 	q := fmt.Sprintf(`
 		SELECT id, run_id, event_type, source, payload, decision, reason, severity, matched_signature_id, timestamp
