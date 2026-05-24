@@ -123,6 +123,8 @@ func main() {
 			intel.GET("/signatures", h.ListSignatures)
 			intel.POST("/signatures", h.CreateSignature)
 			intel.GET("/stats", h.GetIntelligenceStats)
+			intel.GET("/yara-rules", h.ListYaraRules)
+			intel.POST("/yara-rules", h.CreateYaraRule)
 		}
 
 		policies := api.Group("/policies")

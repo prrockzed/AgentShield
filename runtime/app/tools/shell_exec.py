@@ -4,7 +4,7 @@ from contextvars import ContextVar
 import httpx
 from langchain_core.tools import tool
 
-from app.interceptors import intercept_tool_call
+from app.interceptors import intercept_tool_call, scan_code
 
 _run_id_ctx:     ContextVar[str] = ContextVar("_run_id_ctx",     default="")
 _sandbox_id_ctx: ContextVar[str] = ContextVar("_sandbox_id_ctx", default="")
@@ -22,6 +22,11 @@ def shell_exec(command: str) -> str:
     result = intercept_tool_call(run_id, "shell_exec", command)
     if result.decision != "ALLOWED":
         return f"Error: command blocked by security policy — {result.reason}"
+
+    # Antivirus scan — check command for known malware signatures
+    av_result = scan_code(run_id, command, "SHELL_SCRIPT")
+    if av_result.decision == "BLOCKED":
+        return f"Error: command blocked by antivirus policy — {av_result.reason}"
 
     if not sandbox_id:
         return "Error: no sandbox available for this run"

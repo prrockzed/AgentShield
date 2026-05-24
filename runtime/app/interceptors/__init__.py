@@ -8,6 +8,7 @@ from .stubs import (
     intercept_filesystem,
     analyze_hallucination,
     intercept_browser,
+    scan_code,
 )
 
 __all__ = [
@@ -20,4 +21,5 @@ __all__ = [
     "intercept_filesystem",
     "analyze_hallucination",
     "intercept_browser",
+    "scan_code",
 ]

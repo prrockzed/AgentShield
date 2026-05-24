@@ -1,7 +1,7 @@
 import httpx
 from langchain_core.tools import tool
 
-from app.interceptors import intercept_prompt, intercept_network, intercept_browser
+from app.interceptors import intercept_prompt, intercept_network, intercept_browser, scan_code
 from app.tools.shell_exec import _run_id_ctx
 
 _TRUNCATE = 8000
@@ -31,6 +31,20 @@ def http_fetch(url: str) -> str:
         if browser_result.decision == "BLOCKED":
             return f"Error: web content blocked by browser security policy — {browser_result.reason}"
     # FLAGGED: event is logged but content passes through to prompt scan
+
+    # Antivirus scan — only on executable content (scripts, binaries)
+    _EXEC_TYPES = ("application/x-sh", "text/x-shellscript", "text/x-python",
+                   "application/javascript", "application/octet-stream")
+    is_exec_mime    = any(t in content_type for t in _EXEC_TYPES)
+    is_exec_shebang = content.lstrip().startswith("#!")
+    if is_exec_mime or is_exec_shebang:
+        ct = ("PYTHON" if ("python" in content_type or
+                           content.lstrip()[:30].lower().startswith("#!/usr/bin/python"))
+              else "SHELL_SCRIPT")
+        av_result = scan_code(run_id, content, ct)
+        if av_result.decision == "BLOCKED":
+            return f"Error: downloaded content blocked by antivirus policy — {av_result.reason}"
+    # ALLOWED / no match: fall through to prompt scan
 
     result = intercept_prompt(run_id, content, "FETCHED_CONTENT")
     if result.decision == "BLOCKED":

@@ -237,6 +237,42 @@ def intercept_browser(run_id: str, url: str, html_content: str) -> InterceptResu
     return result
 
 
+def scan_code(run_id: str, content: str, content_type: str = "SHELL_SCRIPT") -> InterceptResult:
+    """
+    POST /scan/code on the security-engine.
+    Always publishes a CODE_SCAN event (full audit trail).
+    Returns ALLOWED on any error (fail-open).
+    """
+    try:
+        with httpx.Client(timeout=5.0) as client:
+            resp = client.post(
+                f"{_SE_URL}/scan/code",
+                json={"run_id": run_id, "content": content, "content_type": content_type},
+            )
+            data      = resp.json()
+            result    = InterceptResult(decision=data["decision"], reason=data.get("reason", ""))
+            severity  = "CRITICAL" if data["decision"] == "BLOCKED" else "INFO"
+            matches   = data.get("matches", [])
+            rule_name = data.get("rule_name")
+    except Exception as exc:
+        logger.warning("scan_code: security-engine unreachable: %s", exc)
+        result    = InterceptResult(decision="ALLOWED", reason="")
+        severity  = "INFO"
+        matches   = []
+        rule_name = None
+
+    publish_event({
+        "run_id":     run_id,
+        "event_type": "CODE_SCAN",
+        "source":     "antivirus_interceptor",
+        "payload":    {"content_type": content_type, "matches": matches, "rule_name": rule_name},
+        "decision":   result.decision,
+        "reason":     result.reason or None,
+        "severity":   severity,
+    })
+    return result
+
+
 def analyze_hallucination(run_id: str, output: str, tool_results: list[dict]) -> dict:
     """
     POST /analyze/hallucination on the security-engine.

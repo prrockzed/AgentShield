@@ -18,6 +18,7 @@ from app.interceptors.network_interceptor import evaluate_network_request
 from app.interceptors.filesystem_interceptor import evaluate_filesystem_request
 from app.hallucination.analyzer import analyze_hallucination as _analyze_hallucination
 from app.interceptors.browser_interceptor import evaluate_browser_request
+from app.interceptors.antivirus_interceptor import scan_code
 
 
 @asynccontextmanager
@@ -186,3 +187,23 @@ class InterceptBrowserResponse(BaseModel):
 async def intercept_browser_endpoint(request: InterceptBrowserRequest):
     result = evaluate_browser_request(request.url, request.html_content)
     return InterceptBrowserResponse(**result)
+
+
+class ScanCodeRequest(BaseModel):
+    run_id:       str
+    content:      str
+    content_type: str = "SHELL_SCRIPT"   # SHELL_SCRIPT | PYTHON | JAVASCRIPT | BINARY_B64
+
+
+class ScanCodeResponse(BaseModel):
+    decision:  str
+    reason:    str
+    severity:  str
+    matches:   list[dict] = []
+    rule_name: str | None = None
+
+
+@app.post("/scan/code", response_model=ScanCodeResponse)
+async def scan_code_endpoint(request: ScanCodeRequest):
+    result = scan_code(request.content, request.content_type)
+    return ScanCodeResponse(**result)

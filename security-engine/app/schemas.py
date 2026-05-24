@@ -15,6 +15,7 @@ class EventType(str, Enum):
     FILESYSTEM_INTERCEPT = "FILESYSTEM_INTERCEPT"
     BEHAVIORAL_ALERT     = "BEHAVIORAL_ALERT"
     BROWSER_INTERCEPT    = "BROWSER_INTERCEPT"
+    CODE_SCAN            = "CODE_SCAN"
 
 
 class Decision(str, Enum):

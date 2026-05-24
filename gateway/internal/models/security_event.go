@@ -13,6 +13,7 @@ const (
 	EventTypeBehavioralAlert         EventType = "BEHAVIORAL_ALERT"
 	EventTypeHallucinationDetection  EventType = "HALLUCINATION_DETECTION"
 	EventTypeBrowserIntercept        EventType = "BROWSER_INTERCEPT"
+	EventTypeCodeScan                EventType = "CODE_SCAN"
 )
 
 type Decision string

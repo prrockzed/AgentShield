@@ -17,6 +17,7 @@ const EVENT_TYPES: EventType[] = [
   'NETWORK_INTERCEPT', 'FILESYSTEM_INTERCEPT', 'BEHAVIORAL_ALERT',
   'HALLUCINATION_DETECTION',
   'BROWSER_INTERCEPT',
+  'CODE_SCAN',
 ]
 
 export default function EventsPage() {

@@ -121,6 +121,99 @@ func (h *Handler) CreateSignature(c *gin.Context) {
 	c.JSON(http.StatusCreated, ts)
 }
 
+// GET /api/intelligence/yara-rules?category=&active=true&page=1&limit=50
+func (h *Handler) ListYaraRules(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 200 {
+		limit = 50
+	}
+	offset := (page - 1) * limit
+
+	where := "WHERE 1=1"
+	args := []any{}
+	i := 1
+
+	if cat := c.Query("category"); cat != "" {
+		where += fmt.Sprintf(" AND category = $%d", i)
+		args = append(args, cat)
+		i++
+	}
+	if activeStr := c.DefaultQuery("active", "true"); activeStr != "all" {
+		active := activeStr != "false"
+		where += fmt.Sprintf(" AND active = $%d", i)
+		args = append(args, active)
+		i++
+	}
+
+	var total int
+	if err := h.db.QueryRow(fmt.Sprintf(`SELECT COUNT(*) FROM yara_rules %s`, where), args...).Scan(&total); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "count query failed"})
+		return
+	}
+
+	listArgs := append(args, limit, offset)
+	listQ := fmt.Sprintf(`
+        SELECT id, name, category, rule_text, severity, description, active, created_at
+        FROM yara_rules %s
+        ORDER BY category, severity DESC, created_at DESC
+        LIMIT $%d OFFSET $%d`, where, i, i+1)
+
+	rows, err := h.db.Query(listQ, listArgs...)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "query failed"})
+		return
+	}
+	defer rows.Close()
+
+	items := []models.YaraRule{}
+	for rows.Next() {
+		var yr models.YaraRule
+		if err := rows.Scan(&yr.ID, &yr.Name, &yr.Category, &yr.RuleText,
+			&yr.Severity, &yr.Description, &yr.Active, &yr.CreatedAt); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "scan failed"})
+			return
+		}
+		items = append(items, yr)
+	}
+	c.JSON(http.StatusOK, models.ListYaraRulesResponse{Total: total, Page: page, PageSize: limit, Items: items})
+}
+
+// POST /api/intelligence/yara-rules
+func (h *Handler) CreateYaraRule(c *gin.Context) {
+	var req models.CreateYaraRuleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if req.Severity == "" {
+		req.Severity = "HIGH"
+	}
+	if !validSeverity(models.Severity(req.Severity)) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid severity"})
+		return
+	}
+
+	const q = `
+        INSERT INTO yara_rules (name, category, rule_text, severity, description)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING id, name, category, rule_text, severity, description, active, created_at`
+
+	var yr models.YaraRule
+	err := h.db.QueryRow(q, req.Name, req.Category, req.RuleText,
+		req.Severity, req.Description).Scan(
+		&yr.ID, &yr.Name, &yr.Category, &yr.RuleText,
+		&yr.Severity, &yr.Description, &yr.Active, &yr.CreatedAt)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "insert failed"})
+		return
+	}
+	c.JSON(http.StatusCreated, yr)
+}
+
 // GET /api/intelligence/stats
 func (h *Handler) GetIntelligenceStats(c *gin.Context) {
 	const q = `

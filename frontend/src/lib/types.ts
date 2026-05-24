@@ -7,6 +7,7 @@ export type EventType =
   | 'BEHAVIORAL_ALERT'
   | 'HALLUCINATION_DETECTION'
   | 'BROWSER_INTERCEPT'
+  | 'CODE_SCAN'
 
 export type Decision = 'ALLOWED' | 'BLOCKED' | 'FLAGGED' | 'REDACTED'
 export type Severity = 'INFO' | 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
