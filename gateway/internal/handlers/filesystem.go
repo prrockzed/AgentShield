@@ -91,6 +91,56 @@ func (h *Handler) GetFilesystemPolicies(c *gin.Context) {
 	c.JSON(http.StatusOK, policies)
 }
 
+// PATCH /api/policies/filesystem/:id
+func (h *Handler) ToggleFilesystemPolicy(c *gin.Context) {
+	id := c.Param("id")
+	var body struct {
+		Active bool `json:"active"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	const q = `
+        UPDATE filesystem_policies SET active = $1 WHERE id = $2
+        RETURNING id, path_pattern, operation, decision, severity,
+                  category, reason, source, active, created_at`
+
+	var p FilesystemPolicy
+	err := h.db.QueryRow(q, body.Active, id).Scan(
+		&p.ID, &p.PathPattern, &p.Operation, &p.Decision, &p.Severity,
+		&p.Category, &p.Reason, &p.Source, &p.Active, &p.CreatedAt,
+	)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "policy not found"})
+		return
+	}
+
+	emitPolicyChange(h, "TOGGLE", "filesystem_policies", p.ID, p.PathPattern)
+	c.JSON(http.StatusOK, p)
+}
+
+// DELETE /api/policies/filesystem/:id
+func (h *Handler) DeleteFilesystemPolicy(c *gin.Context) {
+	id := c.Param("id")
+
+	res, err := h.db.Exec(`DELETE FROM filesystem_policies WHERE id = $1 AND source = 'custom'`, id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "delete failed"})
+		return
+	}
+
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		c.JSON(http.StatusForbidden, gin.H{"error": "cannot delete seeded rule"})
+		return
+	}
+
+	emitPolicyChange(h, "DELETE", "filesystem_policies", id, "")
+	c.Status(http.StatusNoContent)
+}
+
 // POST /api/policies/filesystem — add a custom filesystem policy entry.
 func (h *Handler) CreateFilesystemPolicy(c *gin.Context) {
 	var req CreateFilesystemPolicyRequest

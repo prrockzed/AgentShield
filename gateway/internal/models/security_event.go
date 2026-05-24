@@ -14,6 +14,7 @@ const (
 	EventTypeHallucinationDetection  EventType = "HALLUCINATION_DETECTION"
 	EventTypeBrowserIntercept        EventType = "BROWSER_INTERCEPT"
 	EventTypeCodeScan                EventType = "CODE_SCAN"
+	EventTypePolicyChange            EventType = "POLICY_CHANGE"
 )
 
 type Decision string

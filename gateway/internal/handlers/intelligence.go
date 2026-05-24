@@ -214,6 +214,103 @@ func (h *Handler) CreateYaraRule(c *gin.Context) {
 	c.JSON(http.StatusCreated, yr)
 }
 
+// PATCH /api/intelligence/signatures/:id
+func (h *Handler) ToggleSignature(c *gin.Context) {
+	id := c.Param("id")
+	var body struct {
+		Active bool `json:"active"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	const q = `
+        UPDATE threat_signatures SET active = $1 WHERE id = $2
+        RETURNING id, category, pattern, pattern_type, severity, description, source, version, active, created_at, updated_at`
+
+	var ts models.ThreatSignature
+	err := h.db.QueryRow(q, body.Active, id).Scan(
+		&ts.ID, &ts.Category, &ts.Pattern, &ts.PatternType, &ts.Severity,
+		&ts.Description, &ts.Source, &ts.Version, &ts.Active, &ts.CreatedAt, &ts.UpdatedAt,
+	)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "signature not found"})
+		return
+	}
+
+	emitPolicyChange(h, "TOGGLE", "threat_signatures", ts.ID, ts.Pattern)
+	c.JSON(http.StatusOK, ts)
+}
+
+// DELETE /api/intelligence/signatures/:id
+func (h *Handler) DeleteSignature(c *gin.Context) {
+	id := c.Param("id")
+
+	res, err := h.db.Exec(`DELETE FROM threat_signatures WHERE id = $1 AND source = 'custom'`, id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "delete failed"})
+		return
+	}
+
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		c.JSON(http.StatusForbidden, gin.H{"error": "cannot delete seeded rule"})
+		return
+	}
+
+	emitPolicyChange(h, "DELETE", "threat_signatures", id, "")
+	c.Status(http.StatusNoContent)
+}
+
+// PATCH /api/intelligence/yara-rules/:id
+func (h *Handler) ToggleYaraRule(c *gin.Context) {
+	id := c.Param("id")
+	var body struct {
+		Active bool `json:"active"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	const q = `
+        UPDATE yara_rules SET active = $1 WHERE id = $2
+        RETURNING id, name, category, rule_text, severity, description, active, created_at`
+
+	var yr models.YaraRule
+	err := h.db.QueryRow(q, body.Active, id).Scan(
+		&yr.ID, &yr.Name, &yr.Category, &yr.RuleText, &yr.Severity, &yr.Description, &yr.Active, &yr.CreatedAt,
+	)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "yara rule not found"})
+		return
+	}
+
+	emitPolicyChange(h, "TOGGLE", "yara_rules", yr.ID, yr.Name)
+	c.JSON(http.StatusOK, yr)
+}
+
+// DELETE /api/intelligence/yara-rules/:id
+func (h *Handler) DeleteYaraRule(c *gin.Context) {
+	id := c.Param("id")
+
+	res, err := h.db.Exec(`DELETE FROM yara_rules WHERE id = $1`, id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "delete failed"})
+		return
+	}
+
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "yara rule not found"})
+		return
+	}
+
+	emitPolicyChange(h, "DELETE", "yara_rules", id, "")
+	c.Status(http.StatusNoContent)
+}
+
 // GET /api/intelligence/stats
 func (h *Handler) GetIntelligenceStats(c *gin.Context) {
 	const q = `

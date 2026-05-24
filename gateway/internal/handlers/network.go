@@ -79,6 +79,54 @@ func (h *Handler) GetNetworkPolicies(c *gin.Context) {
 	c.JSON(http.StatusOK, policies)
 }
 
+// PATCH /api/policies/network/:id
+func (h *Handler) ToggleNetworkPolicy(c *gin.Context) {
+	id := c.Param("id")
+	var body struct {
+		Active bool `json:"active"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	const q = `
+		UPDATE network_policies SET active = $1 WHERE id = $2
+		RETURNING id, type, domain, category, reason, source, active, created_at`
+
+	var p NetworkPolicy
+	err := h.db.QueryRow(q, body.Active, id).Scan(
+		&p.ID, &p.Type, &p.Domain, &p.Category, &p.Reason, &p.Source, &p.Active, &p.CreatedAt,
+	)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "policy not found"})
+		return
+	}
+
+	emitPolicyChange(h, "TOGGLE", "network_policies", p.ID, p.Domain)
+	c.JSON(http.StatusOK, p)
+}
+
+// DELETE /api/policies/network/:id
+func (h *Handler) DeleteNetworkPolicy(c *gin.Context) {
+	id := c.Param("id")
+
+	res, err := h.db.Exec(`DELETE FROM network_policies WHERE id = $1 AND source = 'custom'`, id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "delete failed"})
+		return
+	}
+
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		c.JSON(http.StatusForbidden, gin.H{"error": "cannot delete seeded rule"})
+		return
+	}
+
+	emitPolicyChange(h, "DELETE", "network_policies", id, "")
+	c.Status(http.StatusNoContent)
+}
+
 // POST /api/policies/network/allow — adds a domain to the ALLOWLIST.
 func (h *Handler) CreateNetworkPolicy(c *gin.Context) {
 	var req CreateNetworkPolicyRequest

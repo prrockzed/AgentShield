@@ -1,4 +1,7 @@
-import type { SecurityEvent, Run, Agent, Model } from './types'
+import type {
+  SecurityEvent, Run, Agent, Model,
+  ShellRule, DlpPolicy, NetworkPolicy, FilesystemPolicy, ThreatSignature, YaraRule,
+} from './types'
 import { useAuthStore } from '@/store/auth'
 
 const BASE = process.env.NEXT_PUBLIC_GATEWAY_URL ?? 'http://localhost:8080'
@@ -94,4 +97,199 @@ export async function submitRun(body: SubmitRunBody): Promise<Response> {
     method: 'POST',
     body: JSON.stringify(body),
   })
+}
+
+// ─── Shell Rules ──────────────────────────────────────────────────────────────
+
+export async function fetchShellRules(params?: { category?: string; active?: string }): Promise<ShellRule[]> {
+  const qs = new URLSearchParams()
+  if (params?.category) qs.set('category', params.category)
+  if (params?.active)   qs.set('active', params.active)
+  const res = await apiFetch(`${BASE}/api/policies/shell${qs.toString() ? '?' + qs.toString() : ''}`)
+  if (!res.ok) throw new Error('Failed to fetch shell rules')
+  return res.json()
+}
+
+export async function createShellRule(body: { pattern: string; reason: string; category: string }): Promise<ShellRule> {
+  const res = await apiFetch(`${BASE}/api/policies/shell`, { method: 'POST', body: JSON.stringify(body) })
+  if (!res.ok) throw new Error('Failed to create shell rule')
+  return res.json()
+}
+
+export async function toggleShellRule(id: string, active: boolean): Promise<ShellRule> {
+  const res = await apiFetch(`${BASE}/api/policies/shell/${id}`, { method: 'PATCH', body: JSON.stringify({ active }) })
+  if (!res.ok) throw new Error('Failed to toggle shell rule')
+  return res.json()
+}
+
+export async function deleteShellRule(id: string): Promise<void> {
+  const res = await apiFetch(`${BASE}/api/policies/shell/${id}`, { method: 'DELETE' })
+  if (!res.ok) throw new Error('Failed to delete shell rule')
+}
+
+// ─── DLP Policies ─────────────────────────────────────────────────────────────
+
+export async function fetchDlpPolicies(params?: { category?: string; active?: string }): Promise<DlpPolicy[]> {
+  const qs = new URLSearchParams()
+  if (params?.category) qs.set('category', params.category)
+  if (params?.active)   qs.set('active', params.active)
+  const res = await apiFetch(`${BASE}/api/policies/dlp${qs.toString() ? '?' + qs.toString() : ''}`)
+  if (!res.ok) throw new Error('Failed to fetch DLP policies')
+  return res.json()
+}
+
+export async function createDlpPolicy(body: {
+  category: string; pattern: string; label: string; action?: string; severity?: string
+}): Promise<DlpPolicy> {
+  const res = await apiFetch(`${BASE}/api/policies/dlp`, { method: 'POST', body: JSON.stringify(body) })
+  if (!res.ok) throw new Error('Failed to create DLP policy')
+  return res.json()
+}
+
+export async function toggleDlpPolicy(id: string, active: boolean): Promise<DlpPolicy> {
+  const res = await apiFetch(`${BASE}/api/policies/dlp/${id}`, { method: 'PATCH', body: JSON.stringify({ active }) })
+  if (!res.ok) throw new Error('Failed to toggle DLP policy')
+  return res.json()
+}
+
+export async function deleteDlpPolicy(id: string): Promise<void> {
+  const res = await apiFetch(`${BASE}/api/policies/dlp/${id}`, { method: 'DELETE' })
+  if (!res.ok) throw new Error('Failed to delete DLP policy')
+}
+
+// ─── Network Policies ─────────────────────────────────────────────────────────
+
+export async function fetchNetworkPolicies(params?: { type?: string; category?: string; active?: string }): Promise<NetworkPolicy[]> {
+  const qs = new URLSearchParams()
+  if (params?.type)     qs.set('type', params.type)
+  if (params?.category) qs.set('category', params.category)
+  if (params?.active)   qs.set('active', params.active)
+  const res = await apiFetch(`${BASE}/api/policies/network${qs.toString() ? '?' + qs.toString() : ''}`)
+  if (!res.ok) throw new Error('Failed to fetch network policies')
+  return res.json()
+}
+
+export async function createNetworkPolicy(body: { domain: string; category: string; reason?: string }): Promise<NetworkPolicy> {
+  const res = await apiFetch(`${BASE}/api/policies/network/allow`, { method: 'POST', body: JSON.stringify(body) })
+  if (!res.ok) throw new Error('Failed to create network policy')
+  return res.json()
+}
+
+export async function toggleNetworkPolicy(id: string, active: boolean): Promise<NetworkPolicy> {
+  const res = await apiFetch(`${BASE}/api/policies/network/${id}`, { method: 'PATCH', body: JSON.stringify({ active }) })
+  if (!res.ok) throw new Error('Failed to toggle network policy')
+  return res.json()
+}
+
+export async function deleteNetworkPolicy(id: string): Promise<void> {
+  const res = await apiFetch(`${BASE}/api/policies/network/${id}`, { method: 'DELETE' })
+  if (!res.ok) throw new Error('Failed to delete network policy')
+}
+
+// ─── Filesystem Policies ──────────────────────────────────────────────────────
+
+export async function fetchFilesystemPolicies(params?: { category?: string; active?: string }): Promise<FilesystemPolicy[]> {
+  const qs = new URLSearchParams()
+  if (params?.category) qs.set('category', params.category)
+  if (params?.active)   qs.set('active', params.active)
+  const res = await apiFetch(`${BASE}/api/policies/filesystem${qs.toString() ? '?' + qs.toString() : ''}`)
+  if (!res.ok) throw new Error('Failed to fetch filesystem policies')
+  return res.json()
+}
+
+export async function createFilesystemPolicy(body: {
+  path_pattern: string; category: string; operation?: string; decision?: string; severity?: string
+}): Promise<FilesystemPolicy> {
+  const res = await apiFetch(`${BASE}/api/policies/filesystem`, { method: 'POST', body: JSON.stringify(body) })
+  if (!res.ok) throw new Error('Failed to create filesystem policy')
+  return res.json()
+}
+
+export async function toggleFilesystemPolicy(id: string, active: boolean): Promise<FilesystemPolicy> {
+  const res = await apiFetch(`${BASE}/api/policies/filesystem/${id}`, { method: 'PATCH', body: JSON.stringify({ active }) })
+  if (!res.ok) throw new Error('Failed to toggle filesystem policy')
+  return res.json()
+}
+
+export async function deleteFilesystemPolicy(id: string): Promise<void> {
+  const res = await apiFetch(`${BASE}/api/policies/filesystem/${id}`, { method: 'DELETE' })
+  if (!res.ok) throw new Error('Failed to delete filesystem policy')
+}
+
+// ─── Threat Signatures ────────────────────────────────────────────────────────
+
+export interface ListSignaturesResponse {
+  total: number
+  page: number
+  page_size: number
+  items: ThreatSignature[]
+}
+
+export async function fetchSignatures(params?: { category?: string; active?: string; page?: number; limit?: number }): Promise<ListSignaturesResponse> {
+  const qs = new URLSearchParams()
+  if (params?.category) qs.set('category', params.category)
+  if (params?.active)   qs.set('active', params.active)
+  if (params?.page)     qs.set('page', String(params.page))
+  if (params?.limit)    qs.set('limit', String(params.limit))
+  const res = await apiFetch(`${BASE}/api/intelligence/signatures${qs.toString() ? '?' + qs.toString() : ''}`)
+  if (!res.ok) throw new Error('Failed to fetch signatures')
+  return res.json()
+}
+
+export async function createSignature(body: {
+  category: string; pattern: string; pattern_type?: string; severity?: string; description?: string
+}): Promise<ThreatSignature> {
+  const res = await apiFetch(`${BASE}/api/intelligence/signatures`, { method: 'POST', body: JSON.stringify(body) })
+  if (!res.ok) throw new Error('Failed to create signature')
+  return res.json()
+}
+
+export async function toggleSignature(id: string, active: boolean): Promise<ThreatSignature> {
+  const res = await apiFetch(`${BASE}/api/intelligence/signatures/${id}`, { method: 'PATCH', body: JSON.stringify({ active }) })
+  if (!res.ok) throw new Error('Failed to toggle signature')
+  return res.json()
+}
+
+export async function deleteSignature(id: string): Promise<void> {
+  const res = await apiFetch(`${BASE}/api/intelligence/signatures/${id}`, { method: 'DELETE' })
+  if (!res.ok) throw new Error('Failed to delete signature')
+}
+
+// ─── YARA Rules ───────────────────────────────────────────────────────────────
+
+export interface ListYaraRulesResponse {
+  total: number
+  page: number
+  page_size: number
+  items: YaraRule[]
+}
+
+export async function fetchYaraRules(params?: { category?: string; active?: string; page?: number; limit?: number }): Promise<ListYaraRulesResponse> {
+  const qs = new URLSearchParams()
+  if (params?.category) qs.set('category', params.category)
+  if (params?.active)   qs.set('active', params.active)
+  if (params?.page)     qs.set('page', String(params.page))
+  if (params?.limit)    qs.set('limit', String(params.limit))
+  const res = await apiFetch(`${BASE}/api/intelligence/yara-rules${qs.toString() ? '?' + qs.toString() : ''}`)
+  if (!res.ok) throw new Error('Failed to fetch YARA rules')
+  return res.json()
+}
+
+export async function createYaraRule(body: {
+  name: string; category: string; rule_text: string; severity?: string; description?: string
+}): Promise<YaraRule> {
+  const res = await apiFetch(`${BASE}/api/intelligence/yara-rules`, { method: 'POST', body: JSON.stringify(body) })
+  if (!res.ok) throw new Error('Failed to create YARA rule')
+  return res.json()
+}
+
+export async function toggleYaraRule(id: string, active: boolean): Promise<YaraRule> {
+  const res = await apiFetch(`${BASE}/api/intelligence/yara-rules/${id}`, { method: 'PATCH', body: JSON.stringify({ active }) })
+  if (!res.ok) throw new Error('Failed to toggle YARA rule')
+  return res.json()
+}
+
+export async function deleteYaraRule(id: string): Promise<void> {
+  const res = await apiFetch(`${BASE}/api/intelligence/yara-rules/${id}`, { method: 'DELETE' })
+  if (!res.ok) throw new Error('Failed to delete YARA rule')
 }

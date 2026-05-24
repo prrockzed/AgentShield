@@ -155,10 +155,30 @@ func scanEvent(scan func(...any) error) (models.SecurityEvent, error) {
 func validEventType(v models.EventType) bool {
 	switch v {
 	case models.EventTypePromptScan, models.EventTypeToolIntercept, models.EventTypeOutputScan,
-		models.EventTypeNetworkIntercept, models.EventTypeFilesystemIntercept, models.EventTypeBehavioralAlert:
+		models.EventTypeNetworkIntercept, models.EventTypeFilesystemIntercept, models.EventTypeBehavioralAlert,
+		models.EventTypeHallucinationDetection, models.EventTypeBrowserIntercept, models.EventTypeCodeScan,
+		models.EventTypePolicyChange:
 		return true
 	}
 	return false
+}
+
+// emitPolicyChange persists a POLICY_CHANGE event and broadcasts it over the WebSocket hub.
+func emitPolicyChange(h *Handler, action, table, recordID, detail string) {
+	req := models.CreateEventRequest{
+		EventType: models.EventTypePolicyChange,
+		Source:    "policy_manager",
+		Payload:   map[string]any{"action": action, "table": table, "id": recordID, "detail": detail},
+		Decision:  models.DecisionAllowed,
+		Severity:  models.SeverityInfo,
+	}
+	evt, err := InsertEvent(h.db, req)
+	if err != nil {
+		return
+	}
+	if b, err := json.Marshal(evt); err == nil {
+		h.hub.Broadcast(b)
+	}
 }
 
 func validDecision(v models.Decision) bool {

@@ -5,6 +5,7 @@ import re
 import time
 
 import redis
+import psycopg2  # type: ignore
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +69,15 @@ _COMPILED_BASE: list[tuple[re.Pattern, str]] = [
 _REDIS_KEY = "agentshield:policy:shell_rules"
 _CACHE_TTL = 300  # seconds
 
+_DB_DSN = (
+    f"host={os.getenv('POSTGRES_HOST', 'postgres')} "
+    f"port={os.getenv('POSTGRES_PORT', '5432')} "
+    f"dbname={os.getenv('POSTGRES_DB', 'agentshield')} "
+    f"user={os.getenv('POSTGRES_USER', 'agentshield')} "
+    f"password={os.getenv('POSTGRES_PASSWORD', 'agentshield')} "
+    f"sslmode=disable"
+)
+
 _custom_compiled: list[tuple[re.Pattern, str]] = []
 _last_refresh: float = 0.0
 
@@ -77,8 +87,25 @@ def _redis_client() -> redis.Redis:
     return redis.Redis.from_url(url, decode_responses=True, socket_timeout=2)
 
 
+def _load_rules_from_db() -> list[dict] | None:
+    """Return list of {pattern, reason} from PostgreSQL, or None on error."""
+    try:
+        conn = psycopg2.connect(_DB_DSN)
+        cur = conn.cursor()
+        cur.execute("SELECT pattern, reason FROM shell_rules WHERE active = TRUE")
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        return [{"pattern": row[0], "reason": row[1]} for row in rows] if rows else []
+    except Exception as exc:
+        logger.warning("tool_interceptor: DB load failed: %s", exc)
+        return None
+
+
 def _refresh_custom_rules() -> None:
     global _custom_compiled, _last_refresh
+
+    # Tier 1: Redis
     try:
         raw = _redis_client().get(_REDIS_KEY)
         if raw:
@@ -88,10 +115,27 @@ def _refresh_custom_rules() -> None:
                 for e in entries
                 if "pattern" in e and "reason" in e
             ]
-        else:
-            _custom_compiled = []
+            _last_refresh = time.monotonic()
+            return
     except Exception as exc:
         logger.warning("tool_interceptor: redis refresh failed: %s", exc)
+
+    # Tier 2: PostgreSQL fallback
+    db_entries = _load_rules_from_db()
+    if db_entries is not None:
+        _custom_compiled = [
+            (re.compile(e["pattern"], re.IGNORECASE), e["reason"])
+            for e in db_entries
+            if "pattern" in e and "reason" in e
+        ]
+        # Populate Redis cache
+        try:
+            _redis_client().setex(_REDIS_KEY, _CACHE_TTL, json.dumps(db_entries))
+        except Exception:
+            pass
+    else:
+        _custom_compiled = []
+
     _last_refresh = time.monotonic()
 
 

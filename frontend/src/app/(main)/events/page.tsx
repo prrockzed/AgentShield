@@ -18,6 +18,7 @@ const EVENT_TYPES: EventType[] = [
   'HALLUCINATION_DETECTION',
   'BROWSER_INTERCEPT',
   'CODE_SCAN',
+  'POLICY_CHANGE',
 ]
 
 export default function EventsPage() {

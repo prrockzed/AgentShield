@@ -1,5 +1,99 @@
+import json
+import logging
 import math
+import os
 import re
+import time
+
+import psycopg2  # type: ignore
+import redis as _redis_mod
+
+logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Custom DLP — Redis + PostgreSQL cache (5-min TTL)
+# ---------------------------------------------------------------------------
+_REDIS_KEY_DLP = "agentshield:policy:dlp_custom_rules"
+_custom_dlp: list[tuple[re.Pattern, str]] = []
+_dlp_refresh: float = 0.0
+_DLP_TTL = 300.0
+
+_DB_DSN = (
+    f"host={os.getenv('POSTGRES_HOST', 'postgres')} "
+    f"port={os.getenv('POSTGRES_PORT', '5432')} "
+    f"dbname={os.getenv('POSTGRES_DB', 'agentshield')} "
+    f"user={os.getenv('POSTGRES_USER', 'agentshield')} "
+    f"password={os.getenv('POSTGRES_PASSWORD', 'agentshield')} "
+    f"sslmode=disable"
+)
+
+
+def _redis_client() -> _redis_mod.Redis:
+    url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+    return _redis_mod.Redis.from_url(url, decode_responses=True, socket_timeout=2)
+
+
+def _load_custom_dlp() -> None:
+    global _custom_dlp, _dlp_refresh
+
+    # Tier 1: Redis
+    try:
+        raw = _redis_client().get(_REDIS_KEY_DLP)
+        if raw:
+            entries = json.loads(raw)
+            _custom_dlp = [
+                (re.compile(e["pattern"]), e["label"])
+                for e in entries
+                if "pattern" in e and "label" in e
+            ]
+            _dlp_refresh = time.monotonic()
+            return
+    except Exception as exc:
+        logger.debug("output_interceptor: DLP redis miss: %s", exc)
+
+    # Tier 2: PostgreSQL
+    try:
+        conn = psycopg2.connect(_DB_DSN)
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT pattern, label FROM dlp_policies WHERE active = TRUE AND source = 'custom'"
+        )
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+
+        entries = [{"pattern": row[0], "label": row[1]} for row in rows]
+        _custom_dlp = [
+            (re.compile(e["pattern"]), e["label"])
+            for e in entries
+        ]
+        # Populate Redis
+        try:
+            _redis_client().setex(_REDIS_KEY_DLP, int(_DLP_TTL), json.dumps(entries))
+        except Exception:
+            pass
+    except Exception as exc:
+        logger.warning("output_interceptor: DLP DB load failed: %s", exc)
+        _custom_dlp = []
+
+    _dlp_refresh = time.monotonic()
+
+
+def _detect_custom_dlp(content: str) -> tuple[str, list[dict]]:
+    global _custom_dlp, _dlp_refresh
+    if time.monotonic() - _dlp_refresh > _DLP_TTL:
+        _load_custom_dlp()
+
+    detections: list[dict] = []
+    for pattern, label in _custom_dlp:
+        def _replace(m: re.Match, _label: str = label) -> str:
+            detections.append({"type": _label})
+            return f"[REDACTED:{_label}]"
+        try:
+            content = pattern.sub(_replace, content)
+        except Exception:
+            pass
+    return content, detections
 
 # ---------------------------------------------------------------------------
 # Structured secrets — compiled at import time
@@ -156,6 +250,9 @@ def evaluate_output(content: str) -> dict:
     all_detections.extend(d)
 
     content, d = _detect_entropy(content)
+    all_detections.extend(d)
+
+    content, d = _detect_custom_dlp(content)
     all_detections.extend(d)
 
     decision = "REDACTED" if all_detections else "ALLOWED"

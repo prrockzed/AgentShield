@@ -86,7 +86,7 @@ func main() {
 	r.Use(middleware.RequestID())
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"http://localhost:3000"},
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "X-Request-ID"},
 		ExposeHeaders:    []string{"X-Request-ID"},
 		AllowCredentials: true,
@@ -122,17 +122,33 @@ func main() {
 		{
 			intel.GET("/signatures", h.ListSignatures)
 			intel.POST("/signatures", h.CreateSignature)
+			intel.PATCH("/signatures/:id", h.ToggleSignature)
+			intel.DELETE("/signatures/:id", h.DeleteSignature)
 			intel.GET("/stats", h.GetIntelligenceStats)
 			intel.GET("/yara-rules", h.ListYaraRules)
 			intel.POST("/yara-rules", h.CreateYaraRule)
+			intel.PATCH("/yara-rules/:id", h.ToggleYaraRule)
+			intel.DELETE("/yara-rules/:id", h.DeleteYaraRule)
 		}
 
 		policies := api.Group("/policies")
 		{
+			policies.GET("/shell", h.ListShellRules)
+			policies.POST("/shell", h.CreateShellRule)
+			policies.PATCH("/shell/:id", h.ToggleShellRule)
+			policies.DELETE("/shell/:id", h.DeleteShellRule)
+			policies.GET("/dlp", h.ListDlpPolicies)
+			policies.POST("/dlp", h.CreateDlpPolicy)
+			policies.PATCH("/dlp/:id", h.ToggleDlpPolicy)
+			policies.DELETE("/dlp/:id", h.DeleteDlpPolicy)
 			policies.GET("/network", h.GetNetworkPolicies)
 			policies.POST("/network/allow", h.CreateNetworkPolicy)
+			policies.PATCH("/network/:id", h.ToggleNetworkPolicy)
+			policies.DELETE("/network/:id", h.DeleteNetworkPolicy)
 			policies.GET("/filesystem", h.GetFilesystemPolicies)
 			policies.POST("/filesystem", h.CreateFilesystemPolicy)
+			policies.PATCH("/filesystem/:id", h.ToggleFilesystemPolicy)
+			policies.DELETE("/filesystem/:id", h.DeleteFilesystemPolicy)
 		}
 	}
 
