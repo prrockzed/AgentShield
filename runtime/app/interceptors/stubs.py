@@ -168,6 +168,39 @@ def intercept_network(run_id: str, url: str, method: str = "GET") -> InterceptRe
     return result
 
 
+def intercept_filesystem(run_id: str, path: str, operation: str = "READ") -> InterceptResult:
+    """
+    POST /intercept/filesystem on the security-engine.
+    Publishes a FILESYSTEM_INTERCEPT event.
+    Returns ALLOWED on any network error (fail-open).
+    """
+    try:
+        with httpx.Client(timeout=5.0) as client:
+            resp = client.post(
+                f"{_SE_URL}/intercept/filesystem",
+                json={"run_id": run_id, "path": path, "operation": operation},
+            )
+            data     = resp.json()
+            result   = InterceptResult(decision=data["decision"], reason=data.get("reason", ""))
+            severity = data.get("severity", "HIGH") if data["decision"] != "ALLOWED" else "INFO"
+    except Exception as exc:
+        logger.warning("intercept_filesystem: security-engine unreachable: %s", exc)
+        result   = InterceptResult(decision="ALLOWED", reason="")
+        severity = "INFO"
+
+    publish_event({
+        "run_id":     run_id,
+        "event_type": "FILESYSTEM_INTERCEPT",
+        "source":     "filesystem_interceptor",
+        "payload":    {"path": path, "operation": operation},
+        "decision":   result.decision,
+        "reason":     result.reason or None,
+        "severity":   severity,
+    })
+
+    return result
+
+
 def intercept_output(run_id: str, output: str) -> InterceptResult:
     try:
         with httpx.Client(timeout=5.0) as client:

@@ -128,6 +128,8 @@ func main() {
 		{
 			policies.GET("/network", h.GetNetworkPolicies)
 			policies.POST("/network/allow", h.CreateNetworkPolicy)
+			policies.GET("/filesystem", h.GetFilesystemPolicies)
+			policies.POST("/filesystem", h.CreateFilesystemPolicy)
 		}
 	}
 

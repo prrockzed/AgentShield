@@ -15,6 +15,7 @@ from app.interceptors.prompt_interceptor import evaluate_prompt
 from app.interceptors.output_interceptor import evaluate_output
 from app.behavioral.analyzer import analyze as behavioral_analyze
 from app.interceptors.network_interceptor import evaluate_network_request
+from app.interceptors.filesystem_interceptor import evaluate_filesystem_request
 
 
 @asynccontextmanager
@@ -127,3 +128,21 @@ class InterceptNetworkResponse(BaseModel):
 async def intercept_network_endpoint(request: InterceptNetworkRequest):
     result = evaluate_network_request(request.url, request.method)
     return InterceptNetworkResponse(**result)
+
+
+class InterceptFilesystemRequest(BaseModel):
+    run_id:    str
+    path:      str
+    operation: str = "READ"
+
+
+class InterceptFilesystemResponse(BaseModel):
+    decision: str
+    reason:   str
+    severity: str
+
+
+@app.post("/intercept/filesystem", response_model=InterceptFilesystemResponse)
+async def intercept_filesystem_endpoint(request: InterceptFilesystemRequest):
+    result = evaluate_filesystem_request(request.path, request.operation)
+    return InterceptFilesystemResponse(**result)
