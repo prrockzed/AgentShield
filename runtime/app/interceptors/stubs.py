@@ -201,6 +201,42 @@ def intercept_filesystem(run_id: str, path: str, operation: str = "READ") -> Int
     return result
 
 
+def intercept_browser(run_id: str, url: str, html_content: str) -> InterceptResult:
+    """
+    POST /intercept/browser on the security-engine.
+    Always publishes a BROWSER_INTERCEPT event (even ALLOWED — full audit trail).
+    Returns ALLOWED on any error (fail-open).
+    """
+    try:
+        with httpx.Client(timeout=5.0) as client:
+            resp = client.post(
+                f"{_SE_URL}/intercept/browser",
+                json={"run_id": run_id, "url": url, "html_content": html_content},
+            )
+            data     = resp.json()
+            result   = InterceptResult(decision=data["decision"], reason=data.get("reason", ""))
+            severity = data.get("severity", "INFO") if data["decision"] != "ALLOWED" else "INFO"
+            findings = data.get("findings", [])
+            score    = data.get("score", 0.0)
+    except Exception as exc:
+        logger.warning("intercept_browser: security-engine unreachable: %s", exc)
+        result   = InterceptResult(decision="ALLOWED", reason="")
+        severity = "INFO"
+        findings = []
+        score    = 0.0
+
+    publish_event({
+        "run_id":     run_id,
+        "event_type": "BROWSER_INTERCEPT",
+        "source":     "browser_interceptor",
+        "payload":    {"url": url, "score": score, "findings": findings},
+        "decision":   result.decision,
+        "reason":     result.reason or None,
+        "severity":   severity,
+    })
+    return result
+
+
 def analyze_hallucination(run_id: str, output: str, tool_results: list[dict]) -> dict:
     """
     POST /analyze/hallucination on the security-engine.

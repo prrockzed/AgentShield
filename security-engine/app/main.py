@@ -17,6 +17,7 @@ from app.behavioral.analyzer import analyze as behavioral_analyze
 from app.interceptors.network_interceptor import evaluate_network_request
 from app.interceptors.filesystem_interceptor import evaluate_filesystem_request
 from app.hallucination.analyzer import analyze_hallucination as _analyze_hallucination
+from app.interceptors.browser_interceptor import evaluate_browser_request
 
 
 @asynccontextmanager
@@ -165,3 +166,23 @@ class AnalyzeHallucinationResponse(BaseModel):
 async def analyze_hallucination_endpoint(request: AnalyzeHallucinationRequest):
     result = _analyze_hallucination(request.output, request.tool_results)
     return AnalyzeHallucinationResponse(**result)
+
+
+class InterceptBrowserRequest(BaseModel):
+    run_id:       str
+    url:          str
+    html_content: str
+
+
+class InterceptBrowserResponse(BaseModel):
+    decision: str
+    reason:   str
+    severity: str
+    findings: list[dict] = []
+    score:    float = 0.0
+
+
+@app.post("/intercept/browser", response_model=InterceptBrowserResponse)
+async def intercept_browser_endpoint(request: InterceptBrowserRequest):
+    result = evaluate_browser_request(request.url, request.html_content)
+    return InterceptBrowserResponse(**result)

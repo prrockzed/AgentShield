@@ -12,6 +12,7 @@ const (
 	EventTypeFilesystemIntercept     EventType = "FILESYSTEM_INTERCEPT"
 	EventTypeBehavioralAlert         EventType = "BEHAVIORAL_ALERT"
 	EventTypeHallucinationDetection  EventType = "HALLUCINATION_DETECTION"
+	EventTypeBrowserIntercept        EventType = "BROWSER_INTERCEPT"
 )
 
 type Decision string

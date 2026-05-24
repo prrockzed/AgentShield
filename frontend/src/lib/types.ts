@@ -6,6 +6,7 @@ export type EventType =
   | 'FILESYSTEM_INTERCEPT'
   | 'BEHAVIORAL_ALERT'
   | 'HALLUCINATION_DETECTION'
+  | 'BROWSER_INTERCEPT'
 
 export type Decision = 'ALLOWED' | 'BLOCKED' | 'FLAGGED' | 'REDACTED'
 export type Severity = 'INFO' | 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'

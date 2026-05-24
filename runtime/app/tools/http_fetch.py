@@ -1,7 +1,7 @@
 import httpx
 from langchain_core.tools import tool
 
-from app.interceptors import intercept_prompt, intercept_network
+from app.interceptors import intercept_prompt, intercept_network, intercept_browser
 from app.tools.shell_exec import _run_id_ctx
 
 _TRUNCATE = 8000
@@ -23,6 +23,14 @@ def http_fetch(url: str) -> str:
             content = response.text[:_TRUNCATE]
     except Exception as exc:
         return f"Error: {exc}"
+
+    # Browser security scan — only on HTML responses
+    content_type = response.headers.get("content-type", "")
+    if "text/html" in content_type:
+        browser_result = intercept_browser(run_id, url, content)
+        if browser_result.decision == "BLOCKED":
+            return f"Error: web content blocked by browser security policy — {browser_result.reason}"
+    # FLAGGED: event is logged but content passes through to prompt scan
 
     result = intercept_prompt(run_id, content, "FETCHED_CONTENT")
     if result.decision == "BLOCKED":
