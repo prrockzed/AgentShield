@@ -201,6 +201,41 @@ def intercept_filesystem(run_id: str, path: str, operation: str = "READ") -> Int
     return result
 
 
+def analyze_hallucination(run_id: str, output: str, tool_results: list[dict]) -> dict:
+    """
+    POST /analyze/hallucination on the security-engine.
+    Publishes a HALLUCINATION_DETECTION event when score > 0.
+    Returns {"score": 0.0, "status": "OK", "flags": []} on any error (fail-safe).
+    """
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            resp = client.post(
+                f"{_SE_URL}/analyze/hallucination",
+                json={"run_id": run_id, "output": output, "tool_results": tool_results},
+            )
+            data = resp.json()
+    except Exception as exc:
+        logger.warning("analyze_hallucination: security-engine unreachable: %s", exc)
+        data = {"score": 0.0, "status": "OK", "flags": []}
+
+    score  = data.get("score", 0.0)
+    status = data.get("status", "OK")
+
+    if score > 0.0:
+        severity = "CRITICAL" if status == "UNRELIABLE" else "HIGH" if status == "WARN" else "INFO"
+        publish_event({
+            "run_id":     run_id,
+            "event_type": "HALLUCINATION_DETECTION",
+            "source":     "hallucination_analyzer",
+            "payload":    {"score": score, "flags": data.get("flags", [])},
+            "decision":   status,
+            "reason":     f"hallucination_score={score}",
+            "severity":   severity,
+        })
+
+    return data
+
+
 def intercept_output(run_id: str, output: str) -> InterceptResult:
     try:
         with httpx.Client(timeout=5.0) as client:

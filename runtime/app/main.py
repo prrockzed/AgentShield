@@ -6,9 +6,10 @@ import httpx
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 
+from langchain_core.messages import AIMessage, ToolMessage
 from app.agents import AGENT_REGISTRY
 from app.agents.base import build_agent
-from app.interceptors import intercept_input, intercept_output
+from app.interceptors import intercept_input, intercept_output, analyze_hallucination
 from app.interceptors.stubs import is_terminated, cleanup_run
 from app.schemas import AgentInfo, ExecuteRequest, ExecuteResponse, ModelInfo
 from app.tools import _run_id_ctx, _sandbox_id_ctx
@@ -87,6 +88,25 @@ async def list_models():
     return _MODELS
 
 
+def _extract_tool_results(messages: list) -> list[dict]:
+    """Extract (tool_name, args, result) triples from a LangGraph message list."""
+    tool_calls: dict[str, tuple[str, dict]] = {}
+    for msg in messages:
+        if isinstance(msg, AIMessage) and msg.tool_calls:
+            for tc in msg.tool_calls:
+                tool_calls[tc["id"]] = (tc["name"], tc.get("args", {}))
+    results = []
+    for msg in messages:
+        if isinstance(msg, ToolMessage):
+            tool_name, args = tool_calls.get(msg.tool_call_id, ("unknown", {}))
+            results.append({
+                "tool_name": tool_name,
+                "args":      args,
+                "result":    msg.content,
+            })
+    return results
+
+
 @app.post("/execute", response_model=ExecuteResponse)
 async def execute(request: ExecuteRequest):
     if request.agent_type not in AGENT_REGISTRY:
@@ -138,6 +158,10 @@ async def execute(request: ExecuteRequest):
     messages = result.get("messages", [])
     output = messages[-1].content if messages else ""
 
+    tool_results        = _extract_tool_results(messages)
+    hallucination       = analyze_hallucination(run_id, output, tool_results)
+    hallucination_score = hallucination.get("score", 0.0)
+
     output_result = intercept_output(run_id, output)
     if output_result.decision == "REDACTED":
         output = output_result.redacted_content
@@ -154,4 +178,5 @@ async def execute(request: ExecuteRequest):
         output=output,
         steps=trace.get_steps(run_id),
         status=status,
+        hallucination_score=hallucination_score,
     )

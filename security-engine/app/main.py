@@ -16,6 +16,7 @@ from app.interceptors.output_interceptor import evaluate_output
 from app.behavioral.analyzer import analyze as behavioral_analyze
 from app.interceptors.network_interceptor import evaluate_network_request
 from app.interceptors.filesystem_interceptor import evaluate_filesystem_request
+from app.hallucination.analyzer import analyze_hallucination as _analyze_hallucination
 
 
 @asynccontextmanager
@@ -146,3 +147,21 @@ class InterceptFilesystemResponse(BaseModel):
 async def intercept_filesystem_endpoint(request: InterceptFilesystemRequest):
     result = evaluate_filesystem_request(request.path, request.operation)
     return InterceptFilesystemResponse(**result)
+
+
+class AnalyzeHallucinationRequest(BaseModel):
+    run_id:       str
+    output:       str
+    tool_results: list[dict] = []
+
+
+class AnalyzeHallucinationResponse(BaseModel):
+    score:  float
+    status: str
+    flags:  list[dict] = []
+
+
+@app.post("/analyze/hallucination", response_model=AnalyzeHallucinationResponse)
+async def analyze_hallucination_endpoint(request: AnalyzeHallucinationRequest):
+    result = _analyze_hallucination(request.output, request.tool_results)
+    return AnalyzeHallucinationResponse(**result)

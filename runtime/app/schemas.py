@@ -14,6 +14,7 @@ class ExecuteResponse(BaseModel):
     output: str
     steps: list[dict]
     status: str
+    hallucination_score: float = 0.0
 
 
 class AgentInfo(BaseModel):

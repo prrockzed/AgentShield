@@ -114,6 +114,7 @@ func main() {
 		api.GET("/runs", h.ListRuns)
 		api.GET("/runs/:id", h.GetRun)
 		api.GET("/runs/:id/behavior", h.GetRunBehavior)
+		api.GET("/runs/:id/hallucination", h.GetRunHallucination)
 		api.POST("/events", h.CreateEvent)
 		api.GET("/events", h.ListEvents)
 

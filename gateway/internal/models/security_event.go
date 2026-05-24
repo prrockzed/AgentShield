@@ -5,12 +5,13 @@ import "time"
 type EventType string
 
 const (
-	EventTypePromptScan          EventType = "PROMPT_SCAN"
-	EventTypeToolIntercept       EventType = "TOOL_INTERCEPT"
-	EventTypeOutputScan          EventType = "OUTPUT_SCAN"
-	EventTypeNetworkIntercept    EventType = "NETWORK_INTERCEPT"
-	EventTypeFilesystemIntercept EventType = "FILESYSTEM_INTERCEPT"
-	EventTypeBehavioralAlert     EventType = "BEHAVIORAL_ALERT"
+	EventTypePromptScan              EventType = "PROMPT_SCAN"
+	EventTypeToolIntercept           EventType = "TOOL_INTERCEPT"
+	EventTypeOutputScan              EventType = "OUTPUT_SCAN"
+	EventTypeNetworkIntercept        EventType = "NETWORK_INTERCEPT"
+	EventTypeFilesystemIntercept     EventType = "FILESYSTEM_INTERCEPT"
+	EventTypeBehavioralAlert         EventType = "BEHAVIORAL_ALERT"
+	EventTypeHallucinationDetection  EventType = "HALLUCINATION_DETECTION"
 )
 
 type Decision string

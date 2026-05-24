@@ -62,19 +62,20 @@ func (h *Handler) SubmitRun(c *gin.Context) {
 	}
 
 	const q = `
-		INSERT INTO agent_runs (id, task, agent_type, model, status, output, steps)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO agent_runs (id, task, agent_type, model, status, output, steps, hallucination_score)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		ON CONFLICT (id) DO UPDATE
 		  SET task = EXCLUDED.task, status = EXCLUDED.status,
-		      output = EXCLUDED.output, steps = EXCLUDED.steps
-		RETURNING id, task, status, agent_type, model, output, steps, created_at`
+		      output = EXCLUDED.output, steps = EXCLUDED.steps,
+		      hallucination_score = EXCLUDED.hallucination_score
+		RETURNING id, task, status, agent_type, model, output, steps, hallucination_score, created_at`
 
 	stepsJSON := rr.Steps
 	if len(stepsJSON) == 0 {
 		stepsJSON = json.RawMessage("[]")
 	}
 
-	row := h.db.QueryRow(q, rr.RunID, req.Task, rr.AgentType, rr.Model, rr.Status, rr.Output, []byte(stepsJSON))
+	row := h.db.QueryRow(q, rr.RunID, req.Task, rr.AgentType, rr.Model, rr.Status, rr.Output, []byte(stepsJSON), rr.HallucinationScore)
 	run, err := scanRun(row.Scan)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to persist run"})
@@ -86,7 +87,7 @@ func (h *Handler) SubmitRun(c *gin.Context) {
 
 func (h *Handler) ListRuns(c *gin.Context) {
 	const q = `
-		SELECT id, task, status, agent_type, model, output, steps, created_at
+		SELECT id, task, status, agent_type, model, output, steps, hallucination_score, created_at
 		FROM agent_runs ORDER BY created_at DESC LIMIT 100`
 
 	rows, err := h.db.Query(q)
@@ -113,7 +114,7 @@ func (h *Handler) GetRun(c *gin.Context) {
 	id := c.Param("id")
 
 	const q = `
-		SELECT id, task, status, agent_type, model, output, steps, created_at
+		SELECT id, task, status, agent_type, model, output, steps, hallucination_score, created_at
 		FROM agent_runs WHERE id = $1`
 
 	row := h.db.QueryRow(q, id)
@@ -135,7 +136,7 @@ func scanRun(scan func(...any) error) (models.Run, error) {
 	var stepsRaw []byte
 	err := scan(
 		&run.ID, &run.Task, &run.Status, &run.AgentType, &run.Model,
-		&run.Output, &stepsRaw, &run.CreatedAt,
+		&run.Output, &stepsRaw, &run.HallucinationScore, &run.CreatedAt,
 	)
 	if err != nil {
 		return run, err

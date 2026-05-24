@@ -5,6 +5,7 @@ export type EventType =
   | 'NETWORK_INTERCEPT'
   | 'FILESYSTEM_INTERCEPT'
   | 'BEHAVIORAL_ALERT'
+  | 'HALLUCINATION_DETECTION'
 
 export type Decision = 'ALLOWED' | 'BLOCKED' | 'FLAGGED' | 'REDACTED'
 export type Severity = 'INFO' | 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'

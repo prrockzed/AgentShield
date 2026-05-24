@@ -6,14 +6,15 @@ import (
 )
 
 type Run struct {
-	ID        string          `json:"id"`
-	Task      *string         `json:"task"`
-	Status    string          `json:"status"`
-	AgentType string          `json:"agent_type"`
-	Model     string          `json:"model"`
-	Output    *string         `json:"output"`
-	Steps     json.RawMessage `json:"steps"`
-	CreatedAt time.Time       `json:"created_at"`
+	ID                 string          `json:"id"`
+	Task               *string         `json:"task"`
+	Status             string          `json:"status"`
+	AgentType          string          `json:"agent_type"`
+	Model              string          `json:"model"`
+	Output             *string         `json:"output"`
+	Steps              json.RawMessage `json:"steps"`
+	HallucinationScore *float64        `json:"hallucination_score"`
+	CreatedAt          time.Time       `json:"created_at"`
 }
 
 type SubmitRunRequest struct {
@@ -24,10 +25,11 @@ type SubmitRunRequest struct {
 
 // RuntimeExecuteResponse mirrors the runtime's /execute response shape.
 type RuntimeExecuteResponse struct {
-	RunID     string          `json:"run_id"`
-	AgentType string          `json:"agent_type"`
-	Model     string          `json:"model"`
-	Output    string          `json:"output"`
-	Steps     json.RawMessage `json:"steps"`
-	Status    string          `json:"status"`
+	RunID              string          `json:"run_id"`
+	AgentType          string          `json:"agent_type"`
+	Model              string          `json:"model"`
+	Output             string          `json:"output"`
+	Steps              json.RawMessage `json:"steps"`
+	Status             string          `json:"status"`
+	HallucinationScore float64         `json:"hallucination_score"`
 }

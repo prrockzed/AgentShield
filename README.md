@@ -141,7 +141,7 @@ Agent → ToolInterceptor → Security Engine → ALLOW/BLOCK
 | 3000 | Frontend | http://localhost:3000 | Operator security console (Next.js) |
 | 8080 | Gateway | http://localhost:8080 | REST API (`/api/*`) + WebSocket (`/ws/events`) |
 | 8000 | Runtime | http://localhost:8000 | Agent execution — `/execute`, `/agents`, `/models` |
-| 8001 | Security Engine | http://localhost:8001 | Interceptors — `/intercept/prompt`, `/intercept/tool`, `/intercept/output`, `/intercept/network`, `/intercept/filesystem` |
+| 8001 | Security Engine | http://localhost:8001 | Interceptors — `/intercept/prompt`, `/intercept/tool`, `/intercept/output`, `/intercept/network`, `/intercept/filesystem`, `/analyze/hallucination` |
 | 8002 | Sandbox Manager | http://localhost:8002 | Container lifecycle — `/sandbox/*` |
 | 4222 | NATS | nats://localhost:4222 | JetStream event bus (TCP) |
 | 8222 | NATS monitoring | http://localhost:8222 | NATS HTTP monitoring UI |
@@ -154,14 +154,14 @@ Agent → ToolInterceptor → Security Engine → ALLOW/BLOCK
 
 ## Project Status
 
-**Current milestone:** M4 — Full Security Coverage (Phases 14–17) — **Not started**
+**Current milestone:** M4 — Full Security Coverage (Phases 14–17) — **In progress**
 
 | Milestone | Phases | Status |
 |-----------|--------|--------|
 | M1 — Core Security Foundation | 0–5 | **Complete** |
 | M2 — Sandbox & Real-Time Platform | 6–9 | **Complete** |
 | M3 — Advanced Threat Detection | 10–13 | **Complete** |
-| M4 — Full Security Coverage | 14–17 | Not started |
+| M4 — Full Security Coverage | 14–17 | **In progress** (Phase 14 complete) |
 | M5 — Self-Testing & Production | 18–20 | Not started |
 
 ---
