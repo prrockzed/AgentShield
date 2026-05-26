@@ -17,6 +17,17 @@ import (
 // runtimeClient is a dedicated HTTP client with a long timeout for agent runs.
 var runtimeClient = &http.Client{Timeout: 5 * time.Minute}
 
+// @Summary      Submit a new agent run
+// @Description  Execute an agent task and persist the result.
+// @Tags         runs
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        body body models.SubmitRunRequest true "Run request"
+// @Success      201  {object} map[string]interface{}
+// @Failure      400  {object} map[string]string
+// @Failure      502  {object} map[string]string
+// @Router       /runs [post]
 func (h *Handler) SubmitRun(c *gin.Context) {
 	var req models.SubmitRunRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -102,6 +113,14 @@ func (h *Handler) SubmitRun(c *gin.Context) {
 	c.JSON(http.StatusCreated, run)
 }
 
+// @Summary      List agent runs
+// @Description  Return the 100 most recent agent runs.
+// @Tags         runs
+// @Security     BearerAuth
+// @Produce      json
+// @Success      200  {array}  map[string]interface{}
+// @Failure      500  {object} map[string]string
+// @Router       /runs [get]
 func (h *Handler) ListRuns(c *gin.Context) {
 	const q = `
 		SELECT id, task, status, agent_type, model, output, steps, hallucination_score, created_at
@@ -127,6 +146,15 @@ func (h *Handler) ListRuns(c *gin.Context) {
 	c.JSON(http.StatusOK, runs)
 }
 
+// @Summary      Get agent run by ID
+// @Description  Return a single agent run by its UUID.
+// @Tags         runs
+// @Security     BearerAuth
+// @Produce      json
+// @Param        id path string true "Run UUID"
+// @Success      200  {object} map[string]interface{}
+// @Failure      404  {object} map[string]string
+// @Router       /runs/{id} [get]
 func (h *Handler) GetRun(c *gin.Context) {
 	id := c.Param("id")
 

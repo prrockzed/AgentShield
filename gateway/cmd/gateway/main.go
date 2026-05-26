@@ -1,9 +1,17 @@
+// @title           AgentShield API
+// @version         1.0
+// @description     Runtime security platform for autonomous AI agents.
+// @host            localhost:8080
+// @BasePath        /api
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
 package main
 
 import (
+	"crypto/tls"
 	"database/sql"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 
@@ -14,17 +22,33 @@ import (
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	_ "github.com/lib/pq"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+	ginswagger "github.com/swaggo/gin-swagger"
+	swaggerfiles "github.com/swaggo/files"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/prrockzed/agentshield/gateway/db"
+	_ "github.com/prrockzed/agentshield/gateway/docs"
 	"github.com/prrockzed/agentshield/gateway/internal/handlers"
 	"github.com/prrockzed/agentshield/gateway/internal/metrics"
 	"github.com/prrockzed/agentshield/gateway/internal/middleware"
 	natscons "github.com/prrockzed/agentshield/gateway/internal/nats"
+	agentshieldtls "github.com/prrockzed/agentshield/gateway/internal/tls"
 	"github.com/prrockzed/agentshield/gateway/internal/ws"
 )
 
 func main() {
+	// --- Structured logging ---
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
+	if os.Getenv("LOG_FORMAT") == "text" {
+		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+	}
+	zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	if os.Getenv("LOG_LEVEL") == "debug" {
+		zerolog.SetGlobalLevel(zerolog.DebugLevel)
+	}
+
 	// --- Database ---
 	dsn := fmt.Sprintf(
 		"host=%s port=%s dbname=%s user=%s password=%s sslmode=disable",
@@ -37,35 +61,35 @@ func main() {
 
 	sqlDB, err := sql.Open("postgres", dsn)
 	if err != nil {
-		log.Fatalf("failed to open DB: %v", err)
+		log.Fatal().Err(err).Msg("failed to open DB")
 	}
 	defer sqlDB.Close()
 
 	if err := sqlDB.Ping(); err != nil {
-		log.Fatalf("failed to ping DB: %v", err)
+		log.Fatal().Err(err).Msg("failed to ping DB")
 	}
-	log.Println("connected to postgres")
+	log.Info().Msg("connected to postgres")
 
 	// --- Migrations ---
 	srcDriver, err := iofs.New(db.Migrations, "migrations")
 	if err != nil {
-		log.Fatalf("failed to load migration source: %v", err)
+		log.Fatal().Err(err).Msg("failed to load migration source")
 	}
 
 	dbDriver, err := postgres.WithInstance(sqlDB, &postgres.Config{})
 	if err != nil {
-		log.Fatalf("failed to create migrate driver: %v", err)
+		log.Fatal().Err(err).Msg("failed to create migrate driver")
 	}
 
 	m, err := migrate.NewWithInstance("iofs", srcDriver, "postgres", dbDriver)
 	if err != nil {
-		log.Fatalf("failed to create migrator: %v", err)
+		log.Fatal().Err(err).Msg("failed to create migrator")
 	}
 
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
-		log.Fatalf("migration failed: %v", err)
+		log.Fatal().Err(err).Msg("migration failed")
 	}
-	log.Println("migrations applied")
+	log.Info().Msg("migrations applied")
 
 	// --- Seed admin user ---
 	seedAdmin(sqlDB)
@@ -79,7 +103,7 @@ func main() {
 	// --- NATS Consumer ---
 	consumer, err := natscons.New(getEnv("NATS_URL", "nats://nats:4222"), sqlDB, hub)
 	if err != nil {
-		log.Fatalf("nats: %v", err)
+		log.Fatal().Err(err).Msg("nats connection failed")
 	}
 	consumer.Start()
 
@@ -104,6 +128,9 @@ func main() {
 
 	// Prometheus metrics — public, no auth
 	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
+
+	// Swagger UI — public, no auth
+	r.GET("/api/docs/*any", ginswagger.WrapHandler(swaggerfiles.Handler))
 
 	h := handlers.NewHandler(sqlDB, hub, runtimeURL, securityEngineURL)
 
@@ -166,35 +193,70 @@ func main() {
 			redteam.GET("/results",     h.ListRedteamRuns)
 			redteam.GET("/results/:id", h.GetRedteamRun)
 		}
+
+		// Admin-only: user management
+		users := api.Group("/users", middleware.RequireAdmin())
+		{
+			users.POST("",      h.CreateUser)
+			users.GET("",       h.ListUsers)
+			users.DELETE("/:id", h.DeleteUser)
+		}
 	}
 
 	// WebSocket — token via ?token= query param
 	r.GET("/ws/events", h.WebSocketEvents)
 
-	log.Printf("gateway listening on :%s", port)
+	// --- TLS (optional) ---
+	tlsEnabled := os.Getenv("TLS_ENABLED") == "true"
+	if tlsEnabled {
+		var tlsCfg *tls.Config
+		if domain := os.Getenv("ACME_DOMAIN"); domain != "" {
+			tlsCfg = agentshieldtls.AcmeTLSConfig(domain)
+			log.Info().Str("domain", domain).Msg("TLS: using Let's Encrypt (ACME)")
+		} else {
+			tlsCfg, err = agentshieldtls.GenerateSelfSigned()
+			if err != nil {
+				log.Fatal().Err(err).Msg("TLS: failed to generate self-signed certificate")
+			}
+			log.Info().Msg("TLS: using self-signed certificate")
+		}
+		srv := &http.Server{
+			Addr:      ":8443",
+			Handler:   r,
+			TLSConfig: tlsCfg,
+		}
+		go func() {
+			log.Info().Str("addr", ":8443").Msg("gateway TLS listening")
+			if err := srv.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
+				log.Error().Err(err).Msg("TLS server error")
+			}
+		}()
+	}
+
+	log.Info().Str("addr", ":"+port).Msg("gateway listening")
 	if err := r.Run(":" + port); err != nil {
-		log.Fatalf("server error: %v", err)
+		log.Fatal().Err(err).Msg("server error")
 	}
 }
 
-func seedAdmin(db *sql.DB) {
+func seedAdmin(sqlDB *sql.DB) {
 	email := os.Getenv("ADMIN_EMAIL")
 	password := os.Getenv("ADMIN_PASSWORD")
 	if email == "" || password == "" {
-		log.Println("seed: ADMIN_EMAIL/ADMIN_PASSWORD not set — skipping")
+		log.Info().Msg("seed: ADMIN_EMAIL/ADMIN_PASSWORD not set — skipping")
 		return
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		log.Fatalf("seed: bcrypt: %v", err)
+		log.Fatal().Err(err).Msg("seed: bcrypt failed")
 	}
-	if _, err = db.Exec(
-		`INSERT INTO users (email, password_hash) VALUES ($1, $2) ON CONFLICT (email) DO NOTHING`,
+	if _, err = sqlDB.Exec(
+		`INSERT INTO users (email, password_hash, role) VALUES ($1, $2, 'admin') ON CONFLICT (email) DO NOTHING`,
 		email, string(hash),
 	); err != nil {
-		log.Fatalf("seed: insert: %v", err)
+		log.Fatal().Err(err).Msg("seed: insert failed")
 	}
-	log.Printf("seed: admin %q ready", email)
+	log.Info().Str("email", email).Msg("seed: admin ready")
 }
 
 func getEnv(key, fallback string) string {

@@ -33,3 +33,6 @@ sandbox-manager/sandbox-manager
 # ── OS ────────────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
+
+# ── Don't git ignore these
+!gateway/docs/

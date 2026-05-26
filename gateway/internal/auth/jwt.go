@@ -14,7 +14,9 @@ const (
 )
 
 type Claims struct {
-	Email string `json:"email"`
+	UserID string `json:"user_id"`
+	Email  string `json:"email"`
+	Role   string `json:"role"`
 	jwt.RegisteredClaims
 }
 
@@ -26,9 +28,11 @@ func secret() []byte {
 	return []byte(s)
 }
 
-func IssueAccessToken(userID, email string) (string, error) {
+func IssueAccessToken(userID, email, role string) (string, error) {
 	return jwt.NewWithClaims(jwt.SigningMethodHS256, Claims{
-		Email: email,
+		UserID: userID,
+		Email:  email,
+		Role:   role,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   userID,
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
@@ -38,9 +42,11 @@ func IssueAccessToken(userID, email string) (string, error) {
 	}).SignedString(secret())
 }
 
-func IssueRefreshToken(userID, email string) (string, error) {
+func IssueRefreshToken(userID, email, role string) (string, error) {
 	return jwt.NewWithClaims(jwt.SigningMethodHS256, Claims{
-		Email: email,
+		UserID: userID,
+		Email:  email,
+		Role:   role,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   userID,
 			IssuedAt:  jwt.NewNumericDate(time.Now()),

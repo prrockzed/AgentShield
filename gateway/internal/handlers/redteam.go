@@ -12,6 +12,14 @@ import (
 	"github.com/prrockzed/agentshield/gateway/internal/models"
 )
 
+// @Summary      Trigger red-team run
+// @Description  Run all adversarial test cases against every security interceptor.
+// @Tags         redteam
+// @Security     BearerAuth
+// @Produce      json
+// @Success      201  {object} map[string]interface{}
+// @Failure      502  {object} map[string]string
+// @Router       /redteam/run [post]
 // TriggerRedteamRun proxies POST /api/redteam/run to the security engine,
 // emits a RED_TEAM_RUN security event, and returns 201 with the engine's body.
 func (h *Handler) TriggerRedteamRun(c *gin.Context) {
@@ -109,6 +117,14 @@ func redteamCategoryToThreatCategory(cat string) string {
 	}
 }
 
+// @Summary      List red-team runs
+// @Description  Return all completed red-team run summaries.
+// @Tags         redteam
+// @Security     BearerAuth
+// @Produce      json
+// @Success      200  {array}  map[string]interface{}
+// @Failure      502  {object} map[string]string
+// @Router       /redteam/results [get]
 // ListRedteamRuns proxies GET /api/redteam/results to the security engine.
 func (h *Handler) ListRedteamRuns(c *gin.Context) {
 	resp, err := http.Get(h.securityEngineURL + "/redteam/results")
@@ -127,6 +143,15 @@ func (h *Handler) ListRedteamRuns(c *gin.Context) {
 	c.Data(resp.StatusCode, "application/json", body)
 }
 
+// @Summary      Get red-team run by ID
+// @Description  Return detailed per-case results for a single red-team run.
+// @Tags         redteam
+// @Security     BearerAuth
+// @Produce      json
+// @Param        id path string true "Red-team run ID"
+// @Success      200  {object} map[string]interface{}
+// @Failure      404  {object} map[string]string
+// @Router       /redteam/results/{id} [get]
 // GetRedteamRun proxies GET /api/redteam/results/:id to the security engine,
 // mirroring 404 if the engine returns 404.
 func (h *Handler) GetRedteamRun(c *gin.Context) {

@@ -141,7 +141,8 @@ Agent → ToolInterceptor → Security Engine → ALLOW/BLOCK
 | Port | Service | URL | Notes |
 |------|---------|-----|-------|
 | 3000 | Frontend | http://localhost:3000 | Operator security console (Next.js) |
-| 8080 | Gateway | http://localhost:8080 | REST API (`/api/*`) + WebSocket (`/ws/events`) |
+| 8080 | Gateway | http://localhost:8080 | REST API (`/api/*`) + WebSocket (`/ws/events`) + Swagger UI (`/api/docs`) |
+| 8443 | Gateway TLS | https://localhost:8443 | HTTPS (self-signed or Let's Encrypt when `TLS_ENABLED=true`) |
 | 8000 | Runtime | http://localhost:8000 | Agent execution — `/execute`, `/agents`, `/models` |
 | 8001 | Security Engine | http://localhost:8001 | Interceptors — `/intercept/prompt`, `/intercept/tool`, `/intercept/output`, `/intercept/network`, `/intercept/filesystem`, `/intercept/browser`, `/analyze/hallucination`, `/scan/code` |
 | 8002 | Sandbox Manager | http://localhost:8002 | Container lifecycle — `/sandbox/*` |
@@ -156,7 +157,7 @@ Agent → ToolInterceptor → Security Engine → ALLOW/BLOCK
 
 ## Project Status
 
-**Current milestone:** M5 — Self-Testing & Production (Phases 18–20) — **In progress (18, 19 complete)**
+**Current milestone:** M5 — Self-Testing & Production (Phases 18–20) — **Complete**
 
 | Milestone | Phases | Status |
 |-----------|--------|--------|
@@ -164,7 +165,7 @@ Agent → ToolInterceptor → Security Engine → ALLOW/BLOCK
 | M2 — Sandbox & Real-Time Platform | 6–9 | **Complete** |
 | M3 — Advanced Threat Detection | 10–13 | **Complete** |
 | M4 — Full Security Coverage | 14–17 | **Complete** |
-| M5 — Self-Testing & Production | 18–20 | In progress — 18 ✓ 19 ✓ 20 pending |
+| M5 — Self-Testing & Production | 18–20 | **Complete** |
 
 ---
 

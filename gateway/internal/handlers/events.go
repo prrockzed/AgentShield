@@ -118,6 +118,16 @@ func eventTypeToCategory(et string) string {
 	}
 }
 
+// @Summary      Create security event
+// @Description  Persist a new security event emitted by an interceptor.
+// @Tags         events
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        body body models.CreateEventRequest true "Event payload"
+// @Success      201  {object} models.SecurityEvent
+// @Failure      400  {object} map[string]string
+// @Router       /events [post]
 func (h *Handler) CreateEvent(c *gin.Context) {
 	var req models.CreateEventRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -147,6 +157,18 @@ func (h *Handler) CreateEvent(c *gin.Context) {
 	c.JSON(http.StatusCreated, evt)
 }
 
+// @Summary      List security events
+// @Description  Return up to 500 security events, optionally filtered.
+// @Tags         events
+// @Security     BearerAuth
+// @Produce      json
+// @Param        run_id     query  string false "Filter by run ID"
+// @Param        severity   query  string false "Filter by severity"
+// @Param        event_type query  string false "Filter by event type"
+// @Param        decision   query  string false "Filter by decision"
+// @Success      200  {array}  models.SecurityEvent
+// @Failure      500  {object} map[string]string
+// @Router       /events [get]
 func (h *Handler) ListEvents(c *gin.Context) {
 	runID     := c.Query("run_id")
 	severity  := c.Query("severity")

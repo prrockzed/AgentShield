@@ -13,6 +13,13 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
 }
 
+// @Summary      WebSocket event stream
+// @Description  Upgrade to a WebSocket connection and receive live security events. Pass JWT via ?token= query parameter.
+// @Tags         events
+// @Param        token query string true "JWT access token"
+// @Success      101
+// @Failure      401  {object} map[string]string
+// @Router       /ws/events [get]
 func (h *Handler) WebSocketEvents(c *gin.Context) {
 	tokenStr := c.Query("token")
 	if tokenStr == "" {

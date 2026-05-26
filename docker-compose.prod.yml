@@ -1,0 +1,72 @@
+# docker-compose.prod.yml — production overlay
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# This file ONLY overrides production-specific settings.
+# The base docker-compose.yml remains the authoritative service definition.
+
+services:
+  gateway:
+    environment:
+      TLS_ENABLED: "true"
+      LOG_FORMAT: "json"
+      LOG_LEVEL: "info"
+    ports:
+      - "8080:8080"
+      - "8443:8443"
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: "0.5"
+    restart: always
+
+  runtime:
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: "1.0"
+    restart: always
+
+  security-engine:
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: "1.0"
+    restart: always
+
+  sandbox-manager:
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+          cpus: "0.25"
+    restart: always
+
+  frontend:
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: "0.5"
+    restart: always
+
+  postgres:
+    ports: !reset []     # remove dev 5432:5432 exposure
+    restart: always
+
+  redis:
+    ports: !reset []     # remove dev 6379:6379 exposure
+    restart: always
+
+  nats:
+    ports:
+      - "4222:4222"      # keep TCP for agents; remove monitoring 8222
+    restart: always
+
+  prometheus:
+    restart: always
+
+  grafana:
+    restart: always

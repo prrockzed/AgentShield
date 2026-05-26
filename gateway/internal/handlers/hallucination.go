@@ -7,7 +7,15 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// GET /api/runs/:id/hallucination
+// @Summary      Get run hallucination score
+// @Description  Return the hallucination score and HALLUCINATION_DETECTION events for the given run.
+// @Tags         runs
+// @Security     BearerAuth
+// @Produce      json
+// @Param        id path string true "Run UUID"
+// @Success      200  {object} map[string]interface{}
+// @Failure      404  {object} map[string]string
+// @Router       /runs/{id}/hallucination [get]
 func (h *Handler) GetRunHallucination(c *gin.Context) {
 	runID := c.Param("id")
 

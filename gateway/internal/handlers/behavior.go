@@ -7,8 +7,15 @@ import (
 	"github.com/prrockzed/agentshield/gateway/internal/models"
 )
 
-// GET /api/runs/:id/behavior
-// Returns all BEHAVIORAL_ALERT security events for the given run, ordered chronologically.
+// @Summary      Get run behavioral alerts
+// @Description  Return all BEHAVIORAL_ALERT events for the given run.
+// @Tags         runs
+// @Security     BearerAuth
+// @Produce      json
+// @Param        id path string true "Run UUID"
+// @Success      200  {object} map[string]interface{}
+// @Failure      500  {object} map[string]string
+// @Router       /runs/{id}/behavior [get]
 func (h *Handler) GetRunBehavior(c *gin.Context) {
 	runID := c.Param("id")
 
