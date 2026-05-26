@@ -9,6 +9,7 @@ export type EventType =
   | 'BROWSER_INTERCEPT'
   | 'CODE_SCAN'
   | 'POLICY_CHANGE'
+  | 'RED_TEAM_RUN'
 
 export type Decision = 'ALLOWED' | 'BLOCKED' | 'FLAGGED' | 'REDACTED'
 export type Severity = 'INFO' | 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
@@ -117,4 +118,31 @@ export interface YaraRule {
   description: string | null
   active: boolean
   created_at: string
+}
+
+export interface RedteamRun {
+  id: string
+  started_at: string
+  finished_at: string
+  total: number
+  passed: number
+  failed: number
+  pass_rate: number
+  created_at: string
+}
+
+export interface RedteamCaseResult {
+  case_id: string
+  category: string
+  description: string
+  expected: string[]
+  actual: string
+  passed: boolean
+  actual_response: Record<string, unknown>
+  error: string | null
+  duration_ms: number
+}
+
+export interface RedteamRunDetail extends RedteamRun {
+  results: RedteamCaseResult[]
 }

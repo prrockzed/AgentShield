@@ -13,14 +13,15 @@ import (
 
 // Handler holds shared dependencies for all HTTP and WebSocket handlers.
 type Handler struct {
-	db         *sql.DB
-	hub        *ws.Hub
-	runtimeURL string
+	db                 *sql.DB
+	hub                *ws.Hub
+	runtimeURL         string
+	securityEngineURL  string
 }
 
-// NewHandler creates a Handler wired to the given DB, WebSocket hub, and runtime URL.
-func NewHandler(db *sql.DB, hub *ws.Hub, runtimeURL string) *Handler {
-	return &Handler{db: db, hub: hub, runtimeURL: runtimeURL}
+// NewHandler creates a Handler wired to the given DB, WebSocket hub, runtime URL, and security engine URL.
+func NewHandler(db *sql.DB, hub *ws.Hub, runtimeURL, securityEngineURL string) *Handler {
+	return &Handler{db: db, hub: hub, runtimeURL: runtimeURL, securityEngineURL: securityEngineURL}
 }
 
 // InsertEvent persists a security event to PostgreSQL and returns the created record.
@@ -157,7 +158,7 @@ func validEventType(v models.EventType) bool {
 	case models.EventTypePromptScan, models.EventTypeToolIntercept, models.EventTypeOutputScan,
 		models.EventTypeNetworkIntercept, models.EventTypeFilesystemIntercept, models.EventTypeBehavioralAlert,
 		models.EventTypeHallucinationDetection, models.EventTypeBrowserIntercept, models.EventTypeCodeScan,
-		models.EventTypePolicyChange:
+		models.EventTypePolicyChange, models.EventTypeRedTeamRun:
 		return true
 	}
 	return false

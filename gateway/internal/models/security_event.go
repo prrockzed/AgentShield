@@ -15,6 +15,7 @@ const (
 	EventTypeBrowserIntercept        EventType = "BROWSER_INTERCEPT"
 	EventTypeCodeScan                EventType = "CODE_SCAN"
 	EventTypePolicyChange            EventType = "POLICY_CHANGE"
+	EventTypeRedTeamRun              EventType = "RED_TEAM_RUN"
 )
 
 type Decision string

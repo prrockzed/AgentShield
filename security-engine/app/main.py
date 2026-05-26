@@ -19,6 +19,7 @@ from app.interceptors.filesystem_interceptor import evaluate_filesystem_request
 from app.hallucination.analyzer import analyze_hallucination as _analyze_hallucination
 from app.interceptors.browser_interceptor import evaluate_browser_request
 from app.interceptors.antivirus_interceptor import scan_code
+from app.redteam.router import router as redteam_router
 
 
 @asynccontextmanager
@@ -28,6 +29,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="AgentShield Security Engine", lifespan=lifespan)
+app.include_router(redteam_router)
 
 
 class AnalyzeBehaviorRequest(BaseModel):

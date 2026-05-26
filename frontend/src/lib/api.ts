@@ -1,6 +1,7 @@
 import type {
   SecurityEvent, Run, Agent, Model,
   ShellRule, DlpPolicy, NetworkPolicy, FilesystemPolicy, ThreatSignature, YaraRule,
+  RedteamRun, RedteamRunDetail,
 } from './types'
 import { useAuthStore } from '@/store/auth'
 
@@ -292,4 +293,24 @@ export async function toggleYaraRule(id: string, active: boolean): Promise<YaraR
 export async function deleteYaraRule(id: string): Promise<void> {
   const res = await apiFetch(`${BASE}/api/intelligence/yara-rules/${id}`, { method: 'DELETE' })
   if (!res.ok) throw new Error('Failed to delete YARA rule')
+}
+
+// ─── Red Team ─────────────────────────────────────────────────────────────────
+
+export async function triggerRedteamRun(): Promise<RedteamRun> {
+  const res = await apiFetch(`${BASE}/api/redteam/run`, { method: 'POST' })
+  if (!res.ok) throw new Error('Failed to trigger red-team run')
+  return res.json()
+}
+
+export async function fetchRedteamRuns(): Promise<RedteamRun[]> {
+  const res = await apiFetch(`${BASE}/api/redteam/results`)
+  if (!res.ok) throw new Error('Failed to fetch red-team runs')
+  return res.json()
+}
+
+export async function fetchRedteamRun(id: string): Promise<RedteamRunDetail> {
+  const res = await apiFetch(`${BASE}/api/redteam/results/${id}`)
+  if (!res.ok) throw new Error('Red-team run not found')
+  return res.json()
 }

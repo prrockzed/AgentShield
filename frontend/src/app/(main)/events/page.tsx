@@ -19,6 +19,7 @@ const EVENT_TYPES: EventType[] = [
   'BROWSER_INTERCEPT',
   'CODE_SCAN',
   'POLICY_CHANGE',
+  'RED_TEAM_RUN',
 ]
 
 export default function EventsPage() {

@@ -7,6 +7,7 @@ import {
   fetchFilesystemPolicies, createFilesystemPolicy, toggleFilesystemPolicy, deleteFilesystemPolicy,
   fetchSignatures, createSignature, toggleSignature, deleteSignature,
   fetchYaraRules, createYaraRule, toggleYaraRule, deleteYaraRule,
+  triggerRedteamRun, fetchRedteamRuns, fetchRedteamRun,
 } from '@/lib/api'
 import type { EventsParams } from '@/lib/api'
 
@@ -260,5 +261,31 @@ export function useDeleteYaraRule() {
   return useMutation({
     mutationFn: deleteYaraRule,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['yaraRules'] }),
+  })
+}
+
+// ─── Red Team ──────────────────────────────────────────────────────────────────
+
+export function useRedteamRuns() {
+  return useQuery({
+    queryKey: ['redteamRuns'],
+    queryFn:  fetchRedteamRuns,
+    refetchInterval: 30_000,
+  })
+}
+
+export function useRedteamRun(id: string) {
+  return useQuery({
+    queryKey: ['redteamRuns', id],
+    queryFn:  () => fetchRedteamRun(id),
+    enabled:  !!id,
+  })
+}
+
+export function useTriggerRedteamRun() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: triggerRedteamRun,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['redteamRuns'] }),
   })
 }

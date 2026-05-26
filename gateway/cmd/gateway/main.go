@@ -79,8 +79,9 @@ func main() {
 	consumer.Start()
 
 	// --- HTTP ---
-	port := getEnv("GATEWAY_PORT", "8080")
-	runtimeURL := getEnv("RUNTIME_URL", "http://runtime:8000")
+	port              := getEnv("GATEWAY_PORT", "8080")
+	runtimeURL        := getEnv("RUNTIME_URL", "http://runtime:8000")
+	securityEngineURL := getEnv("SECURITY_ENGINE_URL", "http://security-engine:8001")
 	r := gin.Default()
 
 	r.Use(middleware.RequestID())
@@ -96,7 +97,7 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{"status": "ok", "service": "gateway"})
 	})
 
-	h := handlers.NewHandler(sqlDB, hub, runtimeURL)
+	h := handlers.NewHandler(sqlDB, hub, runtimeURL, securityEngineURL)
 
 	// Public — no auth required
 	authGroup := r.Group("/api/auth")
@@ -149,6 +150,13 @@ func main() {
 			policies.POST("/filesystem", h.CreateFilesystemPolicy)
 			policies.PATCH("/filesystem/:id", h.ToggleFilesystemPolicy)
 			policies.DELETE("/filesystem/:id", h.DeleteFilesystemPolicy)
+		}
+
+		redteam := api.Group("/redteam")
+		{
+			redteam.POST("/run",        h.TriggerRedteamRun)
+			redteam.GET("/results",     h.ListRedteamRuns)
+			redteam.GET("/results/:id", h.GetRedteamRun)
 		}
 	}
 
