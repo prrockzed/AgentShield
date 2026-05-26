@@ -19,6 +19,9 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="AgentShield Runtime")
 
+from prometheus_fastapi_instrumentator import Instrumentator
+Instrumentator().instrument(app).expose(app)
+
 _SM_URL = os.getenv("SANDBOX_MANAGER_URL", "http://sandbox-manager:8002")
 
 _MODELS = [

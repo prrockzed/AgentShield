@@ -4,8 +4,11 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prrockzed/agentshield/gateway/internal/metrics"
 	"github.com/prrockzed/agentshield/gateway/internal/models"
 )
 
@@ -39,10 +42,71 @@ func (h *Handler) TriggerRedteamRun(c *gin.Context) {
 		PassRate float64 `json:"pass_rate"`
 	}
 	if err := json.Unmarshal(body, &summary); err == nil {
+		metrics.RedteamPassRate.Set(summary.PassRate)
 		emitRedteamEvent(h, summary.ID, summary.Total, summary.Passed, summary.Failed, summary.PassRate)
+		// The red-team runner calls interceptors directly (Python→Python), so
+		// individual case decisions never reach InsertEvent. Fetch full results
+		// here and increment ThreatsBlockedTotal for each BLOCKED case.
+		populateRedteamThreatMetrics(h.securityEngineURL, summary.ID)
 	}
 
 	c.Data(http.StatusCreated, "application/json", body)
+}
+
+// populateRedteamThreatMetrics fetches the per-case results for a completed
+// red-team run and increments ThreatsBlockedTotal for every BLOCKED case.
+func populateRedteamThreatMetrics(secEngineURL, runID string) {
+	resp, err := http.Get(secEngineURL + "/redteam/results/" + runID)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		if resp != nil {
+			resp.Body.Close()
+		}
+		return
+	}
+	defer resp.Body.Close()
+
+	var detail struct {
+		Results []struct {
+			Category string `json:"category"`
+			Actual   string `json:"actual"`
+		} `json:"results"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&detail); err != nil {
+		return
+	}
+
+	for _, r := range detail.Results {
+		if r.Actual == "BLOCKED" {
+			metrics.ThreatsBlockedTotal.With(prometheus.Labels{
+				"category": redteamCategoryToThreatCategory(r.Category),
+			}).Inc()
+		}
+	}
+}
+
+// redteamCategoryToThreatCategory maps the red-team case category (e.g. "TOOL")
+// to the threat category label used by agentshield_threats_blocked_total.
+func redteamCategoryToThreatCategory(cat string) string {
+	switch strings.ToUpper(cat) {
+	case "PROMPT":
+		return "prompt_injection"
+	case "TOOL":
+		return "tool_firewall"
+	case "NETWORK":
+		return "network"
+	case "FILESYSTEM":
+		return "filesystem"
+	case "BROWSER":
+		return "browser"
+	case "ANTIVIRUS":
+		return "antivirus"
+	case "HALLUCINATION":
+		return "hallucination"
+	case "OUTPUT":
+		return "dlp"
+	default:
+		return strings.ToLower(cat)
+	}
 }
 
 // ListRedteamRuns proxies GET /api/redteam/results to the security engine.

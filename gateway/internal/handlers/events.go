@@ -7,6 +7,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prrockzed/agentshield/gateway/internal/metrics"
 	"github.com/prrockzed/agentshield/gateway/internal/models"
 	"github.com/prrockzed/agentshield/gateway/internal/ws"
 )
@@ -47,7 +49,73 @@ func InsertEvent(db *sql.DB, req models.CreateEventRequest) (models.SecurityEven
 		string(req.Decision), req.Reason, string(req.Severity), req.MatchedSignatureID,
 	)
 
-	return scanEvent(row.Scan)
+	evt, err := scanEvent(row.Scan)
+	if err != nil {
+		return evt, err
+	}
+
+	// Always: security event counter
+	metrics.SecurityEventsTotal.With(prometheus.Labels{
+		"event_type": string(req.EventType),
+		"decision":   string(req.Decision),
+		"severity":   string(req.Severity),
+	}).Inc()
+
+	// If BLOCKED: threats blocked by category
+	if req.Decision == models.DecisionBlocked {
+		metrics.ThreatsBlockedTotal.With(prometheus.Labels{
+			"category": eventTypeToCategory(string(req.EventType)),
+		}).Inc()
+	}
+
+	// If PROMPT_SCAN: observe injection score from payload
+	if req.EventType == models.EventTypePromptScan {
+		if m, ok := req.Payload.(map[string]any); ok {
+			if score, ok := m["score"].(float64); ok {
+				metrics.PromptInjectionScore.Observe(score)
+			}
+		}
+	}
+
+	// If OUTPUT_SCAN + REDACTED: count DLP detections by type
+	if req.EventType == models.EventTypeOutputScan && req.Decision == models.DecisionRedacted {
+		if m, ok := req.Payload.(map[string]any); ok {
+			if dets, ok := m["detections"].([]any); ok {
+				for _, d := range dets {
+					if dm, ok := d.(map[string]any); ok {
+						if cat, ok := dm["category"].(string); ok && cat != "" {
+							metrics.DlpDetectionsTotal.With(prometheus.Labels{"type": cat}).Inc()
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return evt, nil
+}
+
+func eventTypeToCategory(et string) string {
+	switch et {
+	case "PROMPT_SCAN":
+		return "prompt_injection"
+	case "TOOL_INTERCEPT":
+		return "tool_firewall"
+	case "NETWORK_INTERCEPT":
+		return "network"
+	case "FILESYSTEM_INTERCEPT":
+		return "filesystem"
+	case "BROWSER_INTERCEPT":
+		return "browser"
+	case "CODE_SCAN":
+		return "antivirus"
+	case "HALLUCINATION_DETECTION":
+		return "hallucination"
+	case "OUTPUT_SCAN":
+		return "dlp"
+	default:
+		return "other"
+	}
 }
 
 func (h *Handler) CreateEvent(c *gin.Context) {

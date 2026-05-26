@@ -31,6 +31,9 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="AgentShield Security Engine", lifespan=lifespan)
 app.include_router(redteam_router)
 
+from prometheus_fastapi_instrumentator import Instrumentator
+Instrumentator().instrument(app).expose(app)
+
 
 class AnalyzeBehaviorRequest(BaseModel):
     run_id:    str

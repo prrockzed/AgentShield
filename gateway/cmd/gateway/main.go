@@ -13,10 +13,12 @@ import (
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	_ "github.com/lib/pq"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/prrockzed/agentshield/gateway/db"
 	"github.com/prrockzed/agentshield/gateway/internal/handlers"
+	"github.com/prrockzed/agentshield/gateway/internal/metrics"
 	"github.com/prrockzed/agentshield/gateway/internal/middleware"
 	natscons "github.com/prrockzed/agentshield/gateway/internal/nats"
 	"github.com/prrockzed/agentshield/gateway/internal/ws"
@@ -68,6 +70,9 @@ func main() {
 	// --- Seed admin user ---
 	seedAdmin(sqlDB)
 
+	// --- Metrics ---
+	metrics.Register()
+
 	// --- WebSocket Hub ---
 	hub := ws.NewHub()
 
@@ -96,6 +101,9 @@ func main() {
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok", "service": "gateway"})
 	})
+
+	// Prometheus metrics — public, no auth
+	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	h := handlers.NewHandler(sqlDB, hub, runtimeURL, securityEngineURL)
 

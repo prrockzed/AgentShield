@@ -12,7 +12,7 @@ AgentShield is a security firewall for AI agents. Modern agents can run shell co
 
 Every action an agent attempts — shell command, file read, HTTP fetch, output — passes through a dedicated interceptor before execution. The interceptor evaluates it against all active policies and returns `ALLOW` or `BLOCK`. Nothing runs without approval.
 
-**13 security capabilities:**
+**14 security capabilities:**
 
 | Capability | What it catches |
 |-----------|----------------|
@@ -29,6 +29,7 @@ Every action an agent attempts — shell command, file read, HTTP fetch, output 
 | **Threat Intelligence** | Signature library of 100+ known injection patterns, jailbreaks, shell exploits |
 | **Policy Management** | Live 6-tab console to create, toggle, and delete rules for all policy types; changes broadcast in real time |
 | **Adversarial Red Teaming** | Automated self-attack suite — validates every defense is working |
+| **Observability & Metrics** | Prometheus metrics for all security signals; pre-built Grafana dashboard at `:3001` with 8 live panels |
 
 ---
 
@@ -155,7 +156,7 @@ Agent → ToolInterceptor → Security Engine → ALLOW/BLOCK
 
 ## Project Status
 
-**Current milestone:** M5 — Self-Testing & Production (Phases 18–20) — **In progress**
+**Current milestone:** M5 — Self-Testing & Production (Phases 18–20) — **In progress (18, 19 complete)**
 
 | Milestone | Phases | Status |
 |-----------|--------|--------|
@@ -163,7 +164,7 @@ Agent → ToolInterceptor → Security Engine → ALLOW/BLOCK
 | M2 — Sandbox & Real-Time Platform | 6–9 | **Complete** |
 | M3 — Advanced Threat Detection | 10–13 | **Complete** |
 | M4 — Full Security Coverage | 14–17 | **Complete** |
-| M5 — Self-Testing & Production | 18–20 | In progress |
+| M5 — Self-Testing & Production | 18–20 | In progress — 18 ✓ 19 ✓ 20 pending |
 
 ---
 

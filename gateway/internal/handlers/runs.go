@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prrockzed/agentshield/gateway/internal/metrics"
 	"github.com/prrockzed/agentshield/gateway/internal/models"
 )
 
@@ -23,6 +25,14 @@ func (h *Handler) SubmitRun(c *gin.Context) {
 	}
 
 	body, _ := json.Marshal(req)
+
+	metrics.SandboxActiveCount.Inc()
+	start := time.Now()
+	defer func() {
+		metrics.SandboxActiveCount.Dec()
+		metrics.RunDurationSeconds.Observe(time.Since(start).Seconds())
+	}()
+
 	resp, err := runtimeClient.Post(h.runtimeURL+"/execute", "application/json", bytes.NewReader(body))
 	if err != nil {
 		c.JSON(http.StatusBadGateway, gin.H{"error": "runtime unavailable"})
@@ -45,6 +55,9 @@ func (h *Handler) SubmitRun(c *gin.Context) {
 				b403.RunID, req.Task, req.AgentType, req.Model, b403.Detail,
 			)
 		}
+		metrics.RunsTotal.With(prometheus.Labels{
+			"status": "blocked", "agent_type": req.AgentType,
+		}).Inc()
 		c.Data(http.StatusForbidden, "application/json", blocked)
 		return
 	}
@@ -81,6 +94,10 @@ func (h *Handler) SubmitRun(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to persist run"})
 		return
 	}
+
+	metrics.RunsTotal.With(prometheus.Labels{
+		"status": rr.Status, "agent_type": rr.AgentType,
+	}).Inc()
 
 	c.JSON(http.StatusCreated, run)
 }

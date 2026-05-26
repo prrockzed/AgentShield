@@ -6,3 +6,4 @@ psycopg2-binary==2.9.9
 beautifulsoup4==4.12.3
 lxml==5.2.2
 yara-python==4.5.1
+prometheus-fastapi-instrumentator>=6.1.0
