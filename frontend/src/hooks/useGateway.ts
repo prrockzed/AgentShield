@@ -8,6 +8,7 @@ import {
   fetchSignatures, createSignature, toggleSignature, deleteSignature,
   fetchYaraRules, createYaraRule, toggleYaraRule, deleteYaraRule,
   triggerRedteamRun, fetchRedteamRuns, fetchRedteamRun,
+  getSecuritySettings, updateSecuritySettings,
 } from '@/lib/api'
 import type { EventsParams } from '@/lib/api'
 
@@ -261,6 +262,20 @@ export function useDeleteYaraRule() {
   return useMutation({
     mutationFn: deleteYaraRule,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['yaraRules'] }),
+  })
+}
+
+// ─── Security Settings ────────────────────────────────────────────────────────
+
+export function useSecuritySettings() {
+  return useQuery({ queryKey: ['securitySettings'], queryFn: getSecuritySettings })
+}
+
+export function useUpdateSecuritySettings() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: updateSecuritySettings,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['securitySettings'] }),
   })
 }
 

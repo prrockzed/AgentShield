@@ -5,6 +5,7 @@ class ExecuteRequest(BaseModel):
     agent_type: str
     model: str
     task: str
+    enabled_checks: list[str] | None = None  # None means all checks enabled
 
 
 class ExecuteResponse(BaseModel):

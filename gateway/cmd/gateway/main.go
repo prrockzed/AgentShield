@@ -187,6 +187,12 @@ func main() {
 			policies.DELETE("/filesystem/:id", h.DeleteFilesystemPolicy)
 		}
 
+		settings := api.Group("/settings")
+		{
+			settings.GET("/security", h.GetSecuritySettings)
+			settings.PUT("/security", h.UpdateSecuritySettings)
+		}
+
 		redteam := api.Group("/redteam")
 		{
 			redteam.POST("/run",        h.TriggerRedteamRun)

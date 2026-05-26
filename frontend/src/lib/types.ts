@@ -146,3 +146,17 @@ export interface RedteamCaseResult {
 export interface RedteamRunDetail extends RedteamRun {
   results: RedteamCaseResult[]
 }
+
+export interface SecuritySettings {
+  user_id:                 string
+  prompt_scan:             boolean
+  tool_intercept:          boolean
+  output_scan:             boolean
+  network_intercept:       boolean
+  filesystem_intercept:    boolean
+  behavioral_alert:        boolean
+  hallucination_detection: boolean
+  browser_intercept:       boolean
+  code_scan:               boolean
+  updated_at:              string
+}

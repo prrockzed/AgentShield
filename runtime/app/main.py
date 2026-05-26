@@ -10,7 +10,7 @@ from langchain_core.messages import AIMessage, ToolMessage
 from app.agents import AGENT_REGISTRY
 from app.agents.base import build_agent
 from app.interceptors import intercept_input, intercept_output, analyze_hallucination
-from app.interceptors.stubs import is_terminated, cleanup_run
+from app.interceptors.stubs import is_terminated, cleanup_run, _enabled_checks_ctx
 from app.schemas import AgentInfo, ExecuteRequest, ExecuteResponse, ModelInfo
 from app.tools import _run_id_ctx, _sandbox_id_ctx
 import app.trace as trace
@@ -121,65 +121,73 @@ async def execute(request: ExecuteRequest):
     run_id = str(uuid.uuid4())
     module = AGENT_REGISTRY[request.agent_type]
 
-    input_result = intercept_input(run_id, request.agent_type, request.task)
-    if input_result.decision != "ALLOWED":
-        return JSONResponse(
-            status_code=403,
-            content={"detail": input_result.reason or "Blocked by input interceptor", "run_id": run_id},
-        )
+    # Set per-request security profile context.
+    checks_token = _enabled_checks_ctx.set(
+        frozenset(request.enabled_checks) if request.enabled_checks is not None else None
+    )
 
-    agent = build_agent(module.TOOLS, module.SYSTEM_PROMPT, request.model)
-
-    sandbox_id = _create_sandbox()
-
-    run_token = _run_id_ctx.set(run_id)
-    sbx_token = _sandbox_id_ctx.set(sandbox_id)
-    agent_error: str | None = None
     try:
-        result = agent.invoke({"messages": [{"role": "user", "content": request.task}]})
-    except Exception as exc:
-        logger.error("agent.invoke failed for run %s: %s", run_id, exc)
-        agent_error = str(exc)
-        result = {}
-    finally:
-        _run_id_ctx.reset(run_token)
-        _sandbox_id_ctx.reset(sbx_token)
-        if sandbox_id:
-            _destroy_sandbox(sandbox_id)
+        input_result = intercept_input(run_id, request.agent_type, request.task)
+        if input_result.decision != "ALLOWED":
+            return JSONResponse(
+                status_code=403,
+                content={"detail": input_result.reason or "Blocked by input interceptor", "run_id": run_id},
+            )
 
-    if agent_error:
+        agent = build_agent(module.TOOLS, module.SYSTEM_PROMPT, request.model)
+
+        sandbox_id = _create_sandbox()
+
+        run_token = _run_id_ctx.set(run_id)
+        sbx_token = _sandbox_id_ctx.set(sandbox_id)
+        agent_error: str | None = None
+        try:
+            result = agent.invoke({"messages": [{"role": "user", "content": request.task}]})
+        except Exception as exc:
+            logger.error("agent.invoke failed for run %s: %s", run_id, exc)
+            agent_error = str(exc)
+            result = {}
+        finally:
+            _run_id_ctx.reset(run_token)
+            _sandbox_id_ctx.reset(sbx_token)
+            if sandbox_id:
+                _destroy_sandbox(sandbox_id)
+
+        if agent_error:
+            cleanup_run(run_id)
+            return ExecuteResponse(
+                run_id=run_id,
+                agent_type=request.agent_type,
+                model=request.model,
+                output=f"[Agent error] {agent_error}",
+                steps=[],
+                status="failed",
+            )
+
+        messages = result.get("messages", [])
+        output = messages[-1].content if messages else ""
+
+        tool_results        = _extract_tool_results(messages)
+        hallucination       = analyze_hallucination(run_id, output, tool_results)
+        hallucination_score = hallucination.get("score", 0.0)
+
+        output_result = intercept_output(run_id, output)
+        if output_result.decision == "REDACTED":
+            output = output_result.redacted_content
+        elif output_result.decision == "BLOCKED":
+            output = f"[Blocked] {output_result.reason}"
+
+        status = "terminated" if is_terminated(run_id) else "completed"
         cleanup_run(run_id)
+
         return ExecuteResponse(
             run_id=run_id,
             agent_type=request.agent_type,
             model=request.model,
-            output=f"[Agent error] {agent_error}",
-            steps=[],
-            status="failed",
+            output=output,
+            steps=trace.get_steps(run_id),
+            status=status,
+            hallucination_score=hallucination_score,
         )
-
-    messages = result.get("messages", [])
-    output = messages[-1].content if messages else ""
-
-    tool_results        = _extract_tool_results(messages)
-    hallucination       = analyze_hallucination(run_id, output, tool_results)
-    hallucination_score = hallucination.get("score", 0.0)
-
-    output_result = intercept_output(run_id, output)
-    if output_result.decision == "REDACTED":
-        output = output_result.redacted_content
-    elif output_result.decision == "BLOCKED":
-        output = f"[Blocked] {output_result.reason}"
-
-    status = "terminated" if is_terminated(run_id) else "completed"
-    cleanup_run(run_id)
-
-    return ExecuteResponse(
-        run_id=run_id,
-        agent_type=request.agent_type,
-        model=request.model,
-        output=output,
-        steps=trace.get_steps(run_id),
-        status=status,
-        hallucination_score=hallucination_score,
-    )
+    finally:
+        _enabled_checks_ctx.reset(checks_token)

@@ -12,7 +12,7 @@ AgentShield is a security firewall for AI agents. Modern agents can run shell co
 
 Every action an agent attempts — shell command, file read, HTTP fetch, output — passes through a dedicated interceptor before execution. The interceptor evaluates it against all active policies and returns `ALLOW` or `BLOCK`. Nothing runs without approval.
 
-**14 security capabilities:**
+**15 security capabilities:**
 
 | Capability | What it catches |
 |-----------|----------------|
@@ -30,6 +30,7 @@ Every action an agent attempts — shell command, file read, HTTP fetch, output 
 | **Policy Management** | Live 6-tab console to create, toggle, and delete rules for all policy types; changes broadcast in real time |
 | **Adversarial Red Teaming** | Automated self-attack suite — validates every defense is working |
 | **Observability & Metrics** | Prometheus metrics for all security signals; pre-built Grafana dashboard at `:3001` with 8 live panels |
+| **Per-User Security Profile** | Each user can toggle individual checks on/off; gateway enforces settings — client can never bypass them |
 
 ---
 
@@ -157,7 +158,7 @@ Agent → ToolInterceptor → Security Engine → ALLOW/BLOCK
 
 ## Project Status
 
-**Current milestone:** M5 — Self-Testing & Production (Phases 18–20) — **Complete**
+**Current milestone:** M6 — Per-User Controls (Phase 21) — **Complete**
 
 | Milestone | Phases | Status |
 |-----------|--------|--------|
@@ -166,6 +167,7 @@ Agent → ToolInterceptor → Security Engine → ALLOW/BLOCK
 | M3 — Advanced Threat Detection | 10–13 | **Complete** |
 | M4 — Full Security Coverage | 14–17 | **Complete** |
 | M5 — Self-Testing & Production | 18–20 | **Complete** |
+| M6 — Per-User Controls | 21 | **Complete** |
 
 ---
 

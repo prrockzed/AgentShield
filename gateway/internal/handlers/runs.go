@@ -35,7 +35,23 @@ func (h *Handler) SubmitRun(c *gin.Context) {
 		return
 	}
 
-	body, _ := json.Marshal(req)
+	// Fetch caller's security settings and inject enabled_checks into the runtime request.
+	userID := c.GetString("user_id")
+	settings, _ := fetchSecuritySettings(h.db, userID)
+
+	type runtimeRequest struct {
+		AgentType     string   `json:"agent_type"`
+		Model         string   `json:"model"`
+		Task          string   `json:"task"`
+		EnabledChecks []string `json:"enabled_checks"`
+	}
+	runtimeReq := runtimeRequest{
+		AgentType:     req.AgentType,
+		Model:         req.Model,
+		Task:          req.Task,
+		EnabledChecks: settings.EnabledChecks(),
+	}
+	body, _ := json.Marshal(runtimeReq)
 
 	metrics.SandboxActiveCount.Inc()
 	start := time.Now()

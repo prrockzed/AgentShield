@@ -1,7 +1,7 @@
 import type {
   SecurityEvent, Run, Agent, Model,
   ShellRule, DlpPolicy, NetworkPolicy, FilesystemPolicy, ThreatSignature, YaraRule,
-  RedteamRun, RedteamRunDetail,
+  RedteamRun, RedteamRunDetail, SecuritySettings,
 } from './types'
 import { useAuthStore } from '@/store/auth'
 
@@ -293,6 +293,23 @@ export async function toggleYaraRule(id: string, active: boolean): Promise<YaraR
 export async function deleteYaraRule(id: string): Promise<void> {
   const res = await apiFetch(`${BASE}/api/intelligence/yara-rules/${id}`, { method: 'DELETE' })
   if (!res.ok) throw new Error('Failed to delete YARA rule')
+}
+
+// ─── Security Settings ────────────────────────────────────────────────────────
+
+export async function getSecuritySettings(): Promise<SecuritySettings> {
+  const res = await apiFetch(`${BASE}/api/settings/security`)
+  if (!res.ok) throw new Error('Failed to load security settings')
+  return res.json()
+}
+
+export async function updateSecuritySettings(s: Partial<SecuritySettings>): Promise<SecuritySettings> {
+  const res = await apiFetch(`${BASE}/api/settings/security`, {
+    method: 'PUT',
+    body: JSON.stringify(s),
+  })
+  if (!res.ok) throw new Error('Failed to save security settings')
+  return res.json()
 }
 
 // ─── Red Team ─────────────────────────────────────────────────────────────────
