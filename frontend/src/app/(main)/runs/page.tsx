@@ -1,14 +1,31 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
+import { Search } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, Thead, Tbody, Tr, Th, Td } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
+import { Input } from '@/components/ui/input'
 import Pagination from '@/components/ui/Pagination'
 import { useRuns } from '@/hooks/useGateway'
 import { fmtDate, shortID } from '@/lib/utils'
+
+const STATUSES = ['completed', 'blocked', 'failed', 'running']
+const TIME_RANGES = [
+  { value: '1h',  label: 'Last hour' },
+  { value: '24h', label: 'Last 24h' },
+  { value: '7d',  label: 'Last 7 days' },
+  { value: '30d', label: 'Last 30 days' },
+]
+
+function withinTime(dateStr: string, range: string): boolean {
+  if (!range) return true
+  const ms = ({ '1h': 3_600_000, '24h': 86_400_000, '7d': 604_800_000, '30d': 2_592_000_000 } as Record<string, number>)[range]
+  return ms ? (Date.now() - new Date(dateStr).getTime()) <= ms : true
+}
 
 function statusVariant(status: string) {
   if (status === 'completed') return 'default'
@@ -19,11 +36,33 @@ function statusVariant(status: string) {
 
 export default function RunsPage() {
   const { data: runs, isLoading } = useRuns()
-  const [page, setPage]         = useState(1)
-  const [pageSize, setPageSize] = useState(10)
+  const [search,    setSearch]    = useState('')
+  const [status,    setStatus]    = useState('')
+  const [agent,     setAgent]     = useState('')
+  const [model,     setModel]     = useState('')
+  const [timeRange, setTimeRange] = useState('')
+  const [page, setPage]           = useState(1)
+  const [pageSize, setPageSize]   = useState(10)
 
-  const total     = runs?.length ?? 0
-  const paginated = runs?.slice((page - 1) * pageSize, page * pageSize) ?? []
+  useEffect(() => { setPage(1) }, [search, status, agent, model, timeRange])
+
+  const agents = useMemo(() => [...new Set(runs?.map((r) => r.agent_type) ?? [])], [runs])
+  const models = useMemo(() => [...new Set(runs?.map((r) => r.model) ?? [])],      [runs])
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase()
+    return (runs ?? []).filter((r) => {
+      if (q && !r.id.toLowerCase().includes(q) && !(r.task ?? '').toLowerCase().includes(q)) return false
+      if (status    && r.status     !== status)    return false
+      if (agent     && r.agent_type !== agent)     return false
+      if (model     && r.model      !== model)     return false
+      if (!withinTime(r.created_at, timeRange))    return false
+      return true
+    })
+  }, [runs, search, status, agent, model, timeRange])
+
+  const total     = filtered.length
+  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize)
 
   return (
     <div className="space-y-6">
@@ -32,6 +71,60 @@ export default function RunsPage() {
         <Link href="/runs/new" className="text-sm text-primary hover:underline">
           + New Run
         </Link>
+      </div>
+
+      <div className="flex gap-3 flex-wrap">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
+          <Input
+            placeholder="Search ID or task…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-8 w-56"
+          />
+        </div>
+
+        <Select onValueChange={(v) => setStatus(v === 'all' ? '' : v)}>
+          <SelectTrigger className="w-36">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All statuses</SelectItem>
+            {STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+          </SelectContent>
+        </Select>
+
+        <Select onValueChange={(v) => setAgent(v === 'all' ? '' : v)}>
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="Agent" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All agents</SelectItem>
+            {agents.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+          </SelectContent>
+        </Select>
+
+        <Select onValueChange={(v) => setModel(v === 'all' ? '' : v)}>
+          <SelectTrigger className="w-44">
+            <SelectValue placeholder="Model" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All models</SelectItem>
+            {models.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+          </SelectContent>
+        </Select>
+
+        <Select onValueChange={(v) => setTimeRange(v === 'all' ? '' : v)}>
+          <SelectTrigger className="w-36">
+            <SelectValue placeholder="Time range" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All time</SelectItem>
+            {TIME_RANGES.map(({ value, label }) => (
+              <SelectItem key={value} value={value}>{label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <Card>
@@ -80,10 +173,10 @@ export default function RunsPage() {
                   {paginated.length === 0 && (
                     <Tr>
                       <Td colSpan={6} className="text-center text-muted-foreground py-8">
-                        No runs yet.{' '}
-                        <Link href="/runs/new" className="text-primary hover:underline">
-                          Submit one.
-                        </Link>
+                        {(runs?.length ?? 0) > 0
+                          ? 'No runs match the current filters.'
+                          : <>No runs yet.{' '}<Link href="/runs/new" className="text-primary hover:underline">Submit one.</Link></>
+                        }
                       </Td>
                     </Tr>
                   )}
