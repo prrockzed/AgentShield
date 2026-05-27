@@ -26,26 +26,26 @@ _SM_URL = os.getenv("SANDBOX_MANAGER_URL", "http://sandbox-manager:8002")
 
 _MODELS = [
     # ollama (local) — pull model first: ollama pull <name>
-    ModelInfo(name="ollama_chat/qwen3:4b", provider="ollama"),
-    ModelInfo(name="ollama_chat/llama3", provider="ollama"),
-    ModelInfo(name="ollama_chat/llama3.1", provider="ollama"),
-    ModelInfo(name="ollama_chat/mistral", provider="ollama"),
-    ModelInfo(name="ollama_chat/tinyllama", provider="ollama"),
+    # ModelInfo(name="ollama_chat/qwen3:4b", provider="ollama"),
+    # ModelInfo(name="ollama_chat/llama3", provider="ollama"),
+    # ModelInfo(name="ollama_chat/llama3.1", provider="ollama"),
+    # ModelInfo(name="ollama_chat/mistral", provider="ollama"),
+    # ModelInfo(name="ollama_chat/tinyllama", provider="ollama"),
     # groq (free tier) — set GROQ_API_KEY
     ModelInfo(name="groq/llama-3.3-70b-versatile", provider="groq"),
     ModelInfo(name="groq/llama-3.1-8b-instant", provider="groq"),
     ModelInfo(name="groq/mixtral-8x7b-32768", provider="groq"),
     # gemini (free tier) — set GEMINI_API_KEY
-    ModelInfo(name="gemini/gemini-1.5-flash", provider="gemini"),
-    ModelInfo(name="gemini/gemini-2.0-flash", provider="gemini"),
+    ModelInfo(name="gemini/gemini-2.5-flash", provider="gemini"),
+    ModelInfo(name="gemini/gemini-2.5-flash-lite", provider="gemini"),
     # mistral (free tier) — set MISTRAL_API_KEY
-    ModelInfo(name="mistral/mistral-small-latest", provider="mistral"),
+    # ModelInfo(name="mistral/mistral-small-latest", provider="mistral"),
     # openai (paid) — set OPENAI_API_KEY
-    ModelInfo(name="openai/gpt-4o-mini", provider="openai"),
-    ModelInfo(name="openai/gpt-4o", provider="openai"),
+    # ModelInfo(name="openai/gpt-4o-mini", provider="openai"),
+    # ModelInfo(name="openai/gpt-4o", provider="openai"),
     # anthropic (paid) — set ANTHROPIC_API_KEY
-    ModelInfo(name="anthropic/claude-3-5-haiku-20241022", provider="anthropic"),
-    ModelInfo(name="anthropic/claude-3-5-sonnet-20241022", provider="anthropic"),
+    # ModelInfo(name="anthropic/claude-3-5-haiku-20241022", provider="anthropic"),
+    # ModelInfo(name="anthropic/claude-3-5-sonnet-20241022", provider="anthropic"),
 ]
 
 
