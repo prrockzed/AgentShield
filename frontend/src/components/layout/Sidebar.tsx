@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, Plus, List, Radio, Shield, FlaskConical, Settings, LogOut } from 'lucide-react'
+import { LayoutDashboard, Plus, List, Radio, Shield, FlaskConical, Settings, LogOut, Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useEventStore } from '@/store/events'
 import { useAuthStore } from '@/store/auth'
@@ -14,6 +14,7 @@ const nav = [
   { href: '/events',     label: 'Events',      icon: Radio },
   { href: '/policies',   label: 'Policies',    icon: Shield },
   { href: '/redteam',    label: 'Red Team',    icon: FlaskConical },
+  { href: '/about',      label: 'About',       icon: Info },
   { href: '/settings',   label: 'Settings',    icon: Settings },
 ]
 
