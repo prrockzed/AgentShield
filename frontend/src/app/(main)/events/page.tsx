@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import EventTable from '@/components/events/EventTable'
 import LiveEventFeed from '@/components/events/LiveEventFeed'
+import Pagination from '@/components/ui/Pagination'
 import { useEventStore } from '@/store/events'
 import { useEvents } from '@/hooks/useGateway'
 import type { Severity, Decision, EventType } from '@/lib/types'
@@ -26,6 +27,11 @@ export default function EventsPage() {
   const [severity,   setSeverity]   = useState('')
   const [eventType,  setEventType]  = useState('')
   const [decision,   setDecision]   = useState('')
+  const [page, setPage]             = useState(1)
+  const [pageSize, setPageSize]     = useState(10)
+
+  // Reset to page 1 whenever filters change
+  useEffect(() => { setPage(1) }, [severity, eventType, decision])
 
   const { data: events, isLoading } = useEvents({
     severity:   severity   || undefined,
@@ -47,6 +53,9 @@ export default function EventsPage() {
     ),
     ...(events ?? []),
   ]
+
+  const total     = combined.length
+  const paginated = combined.slice((page - 1) * pageSize, page * pageSize)
 
   return (
     <div className="space-y-6">
@@ -86,7 +95,7 @@ export default function EventsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Security Events ({combined.length})</CardTitle>
+          <CardTitle className="text-base">Security Events ({total})</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {isLoading ? (
@@ -94,7 +103,16 @@ export default function EventsPage() {
               {[1,2,3,4,5].map((i) => <Skeleton key={i} className="h-10 w-full" />)}
             </div>
           ) : (
-            <EventTable events={combined} showRunLink />
+            <>
+              <EventTable events={paginated} showRunLink />
+              <Pagination
+                total={total}
+                page={page}
+                pageSize={pageSize}
+                onPageChange={setPage}
+                onPageSizeChange={(s) => { setPageSize(s); setPage(1) }}
+              />
+            </>
           )}
         </CardContent>
       </Card>

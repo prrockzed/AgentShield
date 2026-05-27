@@ -1,10 +1,12 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, Thead, Tbody, Tr, Th, Td } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import Pagination from '@/components/ui/Pagination'
 import { useRuns } from '@/hooks/useGateway'
 import { fmtDate, shortID } from '@/lib/utils'
 
@@ -17,6 +19,11 @@ function statusVariant(status: string) {
 
 export default function RunsPage() {
   const { data: runs, isLoading } = useRuns()
+  const [page, setPage]         = useState(1)
+  const [pageSize, setPageSize] = useState(10)
+
+  const total     = runs?.length ?? 0
+  const paginated = runs?.slice((page - 1) * pageSize, page * pageSize) ?? []
 
   return (
     <div className="space-y-6">
@@ -37,50 +44,59 @@ export default function RunsPage() {
               {[1,2,3,4,5].map((i) => <Skeleton key={i} className="h-10 w-full" />)}
             </div>
           ) : (
-            <Table>
-              <Thead>
-                <Tr>
-                  <Th>ID</Th>
-                  <Th>Status</Th>
-                  <Th>Agent</Th>
-                  <Th>Model</Th>
-                  <Th>Task</Th>
-                  <Th>Created</Th>
-                </Tr>
-              </Thead>
-              <Tbody>
-                {runs?.map((run) => (
-                  <Tr key={run.id}>
-                    <Td className="font-mono text-xs">
-                      <Link href={`/runs/${run.id}`} className="text-primary hover:underline">
-                        {shortID(run.id)}
-                      </Link>
-                    </Td>
-                    <Td>
-                      <Badge variant={statusVariant(run.status)}>{run.status}</Badge>
-                    </Td>
-                    <Td className="text-sm">{run.agent_type}</Td>
-                    <Td className="text-xs text-muted-foreground">{run.model}</Td>
-                    <Td className="text-sm text-muted-foreground max-w-xs truncate">
-                      {run.task ? run.task.slice(0, 50) + (run.task.length > 50 ? '…' : '') : '—'}
-                    </Td>
-                    <Td className="text-xs text-muted-foreground whitespace-nowrap">
-                      {fmtDate(run.created_at)}
-                    </Td>
-                  </Tr>
-                ))}
-                {(!runs || runs.length === 0) && (
+            <>
+              <Table>
+                <Thead>
                   <Tr>
-                    <Td colSpan={6} className="text-center text-muted-foreground py-8">
-                      No runs yet.{' '}
-                      <Link href="/runs/new" className="text-primary hover:underline">
-                        Submit one.
-                      </Link>
-                    </Td>
+                    <Th>ID</Th>
+                    <Th>Status</Th>
+                    <Th>Agent</Th>
+                    <Th>Model</Th>
+                    <Th>Task</Th>
+                    <Th>Created</Th>
                   </Tr>
-                )}
-              </Tbody>
-            </Table>
+                </Thead>
+                <Tbody>
+                  {paginated.map((run) => (
+                    <Tr key={run.id}>
+                      <Td className="font-mono text-xs">
+                        <Link href={`/runs/${run.id}`} className="text-primary hover:underline">
+                          {shortID(run.id)}
+                        </Link>
+                      </Td>
+                      <Td>
+                        <Badge variant={statusVariant(run.status)}>{run.status}</Badge>
+                      </Td>
+                      <Td className="text-sm">{run.agent_type}</Td>
+                      <Td className="text-xs text-muted-foreground">{run.model}</Td>
+                      <Td className="text-sm text-muted-foreground max-w-xs truncate">
+                        {run.task ? run.task.slice(0, 50) + (run.task.length > 50 ? '…' : '') : '—'}
+                      </Td>
+                      <Td className="text-xs text-muted-foreground whitespace-nowrap">
+                        {fmtDate(run.created_at)}
+                      </Td>
+                    </Tr>
+                  ))}
+                  {paginated.length === 0 && (
+                    <Tr>
+                      <Td colSpan={6} className="text-center text-muted-foreground py-8">
+                        No runs yet.{' '}
+                        <Link href="/runs/new" className="text-primary hover:underline">
+                          Submit one.
+                        </Link>
+                      </Td>
+                    </Tr>
+                  )}
+                </Tbody>
+              </Table>
+              <Pagination
+                total={total}
+                page={page}
+                pageSize={pageSize}
+                onPageChange={setPage}
+                onPageSizeChange={(s) => { setPageSize(s); setPage(1) }}
+              />
+            </>
           )}
         </CardContent>
       </Card>
