@@ -46,8 +46,8 @@ export default function RunsPage() {
 
   useEffect(() => { setPage(1) }, [search, status, agent, model, timeRange])
 
-  const agents = useMemo(() => [...new Set(runs?.map((r) => r.agent_type) ?? [])], [runs])
-  const models = useMemo(() => [...new Set(runs?.map((r) => r.model) ?? [])],      [runs])
+  const agents = useMemo(() => Array.from(new Set(runs?.map((r) => r.agent_type) ?? [])), [runs])
+  const models = useMemo(() => Array.from(new Set(runs?.map((r) => r.model) ?? [])),      [runs])
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
