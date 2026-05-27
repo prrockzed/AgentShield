@@ -24,8 +24,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	ginswagger "github.com/swaggo/gin-swagger"
 	swaggerfiles "github.com/swaggo/files"
+	ginswagger "github.com/swaggo/gin-swagger"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/prrockzed/agentshield/gateway/db"
@@ -108,14 +108,14 @@ func main() {
 	consumer.Start()
 
 	// --- HTTP ---
-	port              := getEnv("GATEWAY_PORT", "8080")
-	runtimeURL        := getEnv("RUNTIME_URL", "http://runtime:8000")
+	port := getEnv("GATEWAY_PORT", "8080")
+	runtimeURL := getEnv("RUNTIME_URL", "http://runtime:8000")
 	securityEngineURL := getEnv("SECURITY_ENGINE_URL", "http://security-engine:8001")
 	r := gin.Default()
 
 	r.Use(middleware.RequestID())
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:3000"},
+		AllowOrigins:     []string{getEnv("CORS_ALLOWED_ORIGIN", "http://localhost:3000")},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "X-Request-ID"},
 		ExposeHeaders:    []string{"X-Request-ID"},
@@ -195,16 +195,16 @@ func main() {
 
 		redteam := api.Group("/redteam")
 		{
-			redteam.POST("/run",        h.TriggerRedteamRun)
-			redteam.GET("/results",     h.ListRedteamRuns)
+			redteam.POST("/run", h.TriggerRedteamRun)
+			redteam.GET("/results", h.ListRedteamRuns)
 			redteam.GET("/results/:id", h.GetRedteamRun)
 		}
 
 		// Admin-only: user management
 		users := api.Group("/users", middleware.RequireAdmin())
 		{
-			users.POST("",      h.CreateUser)
-			users.GET("",       h.ListUsers)
+			users.POST("", h.CreateUser)
+			users.GET("", h.ListUsers)
 			users.DELETE("/:id", h.DeleteUser)
 		}
 	}
